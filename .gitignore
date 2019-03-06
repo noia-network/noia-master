@@ -1,0 +1,8 @@
+node_modules/
+.vscode
+storage/
+masterData.db
+config.json
+certs/
+data/
+dist
