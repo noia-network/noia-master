@@ -18,6 +18,7 @@
     "dataCluster.host": "ws://data-cluster.master-domain.com:port",
     "dataCluster.queueIntervalMs": 100,
     "dataCluster.checkNodeOnline": false,
+    "dataCluster.bandwidthQueueIntervalMs": 60000,
     "protocols.ws.api.isSecure": false,
     "protocols.ws.api.port": 5568,
     "protocols.ws.client.isSecure": true,
