@@ -20,7 +20,7 @@ After `npm install`
 
     node ./node_modules/geoip-lite/scripts/updatedb.js
 
-## Available `config.json` file keys:
+## Config `config.json` options
 
 | key                              | value          | Description                                                               |
 | -------------------------------- | -------------- | ------------------------------------------------------------------------- |
