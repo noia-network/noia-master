@@ -32,7 +32,6 @@ export enum ConfigOption {
     ProtocolsWsClientPort = "protocols.ws.client.port",
     ProtocolsWsNodeIsSecure = "protocols.ws.node.isSecure",
     ProtocolsWsNodePort = "protocols.ws.node.port",
-    ProtocolsWsStatus = "protocols.ws.status",
     CloudflareDomain = "cloudflare.domain",
     CloudflareEmail = "cloudflare.email",
     CloudflareKey = "cloudflare.key",
@@ -87,7 +86,6 @@ export interface ConfigSettings {
     [ConfigOption.ProtocolsWsClientPort]: number;
     [ConfigOption.ProtocolsWsNodeIsSecure]: boolean;
     [ConfigOption.ProtocolsWsNodePort]: number;
-    [ConfigOption.ProtocolsWsStatus]: boolean;
     [ConfigOption.CloudflareDomain]: string;
     [ConfigOption.CloudflareEmail]: string;
     [ConfigOption.CloudflareKey]: string;

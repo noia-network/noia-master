@@ -1,7 +1,7 @@
 {
     "api.port": 8080,
     "api.authToken": "api-auth-token",
-    "proxyControlAddress": "https://master-domain:port", // See: https://github.com/noia-network/webrtc-direct/tree/master/api-proxy
+    "proxyControlAddress": "https://master-domain:port",
     "master.domain": "master-domain.com",
     "master.host": "0.0.0.0",
     "master.id": "Master-ID",
@@ -26,7 +26,6 @@
     "protocols.ws.controller.port": 5567,
     "protocols.ws.node.isSecure": true,
     "protocols.ws.node.port": 5565,
-    "protocols.ws.status": true,
     "cloudflare.domain": "",
     "cloudflare.email": "",
     "cloudflare.key": "",
