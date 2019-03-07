@@ -6,7 +6,7 @@
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
     "scripts": {
-        "start": "ts-node src/index.ts",
+        "start": "node -r ts-node/register/transpile-only src/index.ts",
         "build": "tsc",
         "pretest": "tsc -p . --noEmit",
         "test": "npm run tslint && echo Warning: jest tests are skipped.",
