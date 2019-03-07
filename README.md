@@ -14,6 +14,8 @@ Start master:
 
     npm run start
 
+**Note**: Mater requires data cluster to be running. See: https://github.com/noia-network/noia-data-hog and `dataCluster.host` `config.json` option.
+
 ## Updating geoip data
 
 After `npm install`
