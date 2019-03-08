@@ -26,6 +26,8 @@ export class Client {
             } catch (err) {
                 logger.info(`Failed to parse client client-id=${this.id}, client-ip=${ip} message.`);
                 this.response({
+                    // @ts-ignore
+                    data: { src: "" },
                     error: "Failed to parse request data.",
                     status: 400
                 });
@@ -53,6 +55,10 @@ export class Client {
         if (msg.src == null || typeof msg.src !== "string") {
             logger.error(`Received bad data from client id=${this.id}, ip=${this.ip}, src=${msg.src}.`);
             this.response({
+                // @ts-ignore
+                data: {
+                    src: ""
+                },
                 error: "Property 'src' is invalid.",
                 status: 400
             });
@@ -61,6 +67,10 @@ export class Client {
         if (msg.connectionTypes == null || !Array.isArray(msg.connectionTypes)) {
             logger.error(`Received bad data from client id=${this.id}, ip=${this.ip}, src=${msg.src}.`);
             this.response({
+                // @ts-ignore
+                data: {
+                    src: msg.src
+                },
                 error: "Property 'connectionTypes' is invalid. Array is expected.",
                 status: 400
             });
@@ -86,6 +96,10 @@ export class Client {
                 clientRequestData.src
             )} not found.`;
             this.response({
+                // @ts-ignore
+                data: {
+                    src: clientRequestData.src
+                },
                 error: responseMsg,
                 status: 404
             });
@@ -100,6 +114,8 @@ export class Client {
             const responseMsg = `Content content-id=${contentId}, src=${clientRequestData.src} not found.`;
             logger.debug(responseMsg);
             this.response({
+                // @ts-ignore
+                data: { src: clientRequestData.src },
                 error: responseMsg,
                 status: 404
             });
