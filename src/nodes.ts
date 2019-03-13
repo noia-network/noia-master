@@ -501,40 +501,7 @@ export class Nodes {
 
         wire.once("closed", () => this.onDisconnect(wire));
         wire.once("error", (err: Error) => this.onDisconnect(wire, err));
-
-        // // wire.socket.on("pong", () => this.onPong(wire));
-        // // TODO - latter do one loop for all nodes instead listener to each node - RIGHT NOW CODE ONLY FOR TEST
-        // this._wires[wire.getRemoteMetadata().nodeId].pingPong = setInterval(() => {
-        //     wire.socket.ping(() => {
-        //         if (this._wires[wire.getRemoteMetadata().nodeId] != null && this._wires[wire.getRemoteMetadata().nodeId].pingTimestamp) {
-        //             this._wires[wire.getRemoteMetadata().nodeId].pingTimestamp = Date.now();
-        //         }
-        //     });
-        // }, 600 * 1000);
     }
-
-    // TODO: Deprecate or fix.
-    // private onPong(wire: ExtendedWireTypes): void {
-    //     if (this._wires[wire.getRemoteMetadata().nodeId] && this._wires[wire.getRemoteMetadata().nodeId].pingTimestamp) {
-    //         const pingTimestamp = this._wires[wire.getRemoteMetadata().nodeId].pingTimestamp;
-
-    //         if (pingTimestamp == null) {
-    //             logger.error("Ping timestamp is invalid.");
-    //             return;
-    //         }
-
-    //         const latency = Date.now() - pingTimestamp;
-    //         this._wires[wire.getRemoteMetadata().nodeId].latency = latency;
-
-    //         const node = db.nodes().findOne({ nodeId: wire.getRemoteMetadata().nodeId });
-    //         if (node) {
-    //             node.latency = latency;
-    //             db.nodes().update(node);
-    //         }
-
-    //         logger.warn("Ping pong milliseconds: ", latency);
-    //     }
-    // }
 
     private onConnect(wire: ExtendedWireTypes): Node | undefined {
         if (!wire.getRemoteMetadata().nodeId) {
@@ -1103,18 +1070,6 @@ export class Nodes {
                 continue;
             }
 
-            // TODO: Remove.
-            // const nodesContentKey = db.nodesContentKey().findOne({ contentId: contentId });
-            // if (config.get(ConfigOption.ContentEncryptionIsEnabled) && nodesContentKey == null) {
-            // if (config.get(ConfigOption.ContentEncryptionIsEnabled)) {
-            //     logger.error(
-            //         `Returning accumulated ${Object.keys(peers).length} peers since peer with node-id=${
-            //             candidate.nodeId
-            //         } is missing it's nodes content key data.`
-            //     );
-            //     continue;
-            // }
-
             const internalNode = internalNodesMetadata.get(candidate.ip);
             peers.push({
                 host: candidate.host,
@@ -1135,37 +1090,6 @@ export class Nodes {
     public getWire(nodeId: string): ExtendedWireTypes {
         return this._wires[nodeId];
     }
-
-    // TODO: Deprecate.
-    // public async checkWebrtc(wire: ExtendedWireTypes, ip: string, port: number): Promise<void> {
-    //     //ip = "192.168.0.104";
-    //     try {
-    //         const client = new WebRtcDirect.Client(`http://${ip}:${port}`, {
-    //             wrtc: wrtc,
-    //             candidateIp: config.get(ConfigOption.MasterIp)
-    //         });
-    //         await client.connect();
-    //         await client.stop();
-    //         const node = db.nodes().findOne({ nodeId: wire.getRemoteMetadata().nodeId });
-    //         if (node != null) {
-    //             node.connections.webrtc.checkStatus = "succeeded";
-    //             db.nodes().update(node);
-    //         }
-    //     } catch (err) {
-    //         const node = db.nodes().findOne({ nodeId: wire.getRemoteMetadata().nodeId });
-    //         if (node != null) {
-    //             node.connections.webrtc.checkStatus = "failed";
-    //             db.nodes().update(node);
-    //         }
-    //         const msg = `WebRTC connection failed. Port ${port} or IP ${ip} might be unreachable.`;
-    //         wire.warning(msg);
-    //         logger.info(
-    //             `Node node-id=${wire.getRemoteMetadata().nodeId} received warning: node-ip=${
-    //                 wire.getLocalMetadata().externalIp
-    //             } msg='${msg}'`
-    //         );
-    //     }
-    // }
 
     public async checkWebrtc(wire: ExtendedWireTypes, ip: string, port: number): Promise<void> {
         try {

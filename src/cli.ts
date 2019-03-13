@@ -473,7 +473,6 @@ export function cli(master: Master): void {
     vorpal.delimiter("master-cli>").show();
 }
 
-// SELECT DISTINCT nodeId FROM dbo.LifetimeEvents WHERE nodeId LIKE '0x%'
 function getNodesIds(): string[] {
     return [];
 }
