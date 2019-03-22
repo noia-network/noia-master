@@ -57,16 +57,16 @@ export class Cache {
     }
 
     /**
-     * This function supplies wieghts for node health-score.
+     * This function supplies weights for node health-score.
      * For now weights are hard-coded.
      * Later the weights will be dynamically solved from the latest metrics
      */
     private getScoreWeights(): ScoreWeights {
         /** Weights should always sum to 1! */
         return {
-            bandwidthUploaded: 0.35,
+            bandwidthUploaded: 0.22,
             bandwidthDownloaded: 0.11,
-            uptime: 0.22,
+            uptime: 0.35,
             latency: 0.27,
             storage: 0.05
         };
@@ -102,6 +102,7 @@ export class Cache {
             scoreWeights.latency * defaultWeights.storage +
             scoreWeights.storage * defaultWeights.storage;
         db.healthScore().upsert({ contentId: nodeId }, { contentId: nodeId, data: updatedScore });
+        logger.debug(`Update healthscore of ${nodeId}: ${updatedScore}`);
     }
 
     /**
@@ -113,12 +114,12 @@ export class Cache {
         // Extract parameters from database.
         // mean (mu_n - 1)
         let lastMean = db.settings().view({ key: `${metricName}-mean` }) as number | undefined;
-        if (lastMean == null) {
+        if (lastMean == null || lastMean == Infinity || lastMean == -Infinity) {
             lastMean = 0;
         }
         // cummulative variance (S_n - 1)
         let lastVar = db.settings().view({ key: `${metricName}-var` }) as number | undefined;
-        if (lastVar == null) {
+        if (lastVar == null || lastMean == Infinity || lastMean == -Infinity) {
             lastVar = 1;
         }
 

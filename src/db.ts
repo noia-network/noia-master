@@ -170,6 +170,8 @@ export class DB {
                                 nodesCollection.update(row);
                             } else {
                                 nodesCollection.insert(data);
+                                let numberOfNodes = this.settings().view({ key: "number-of-nodes" }) as number;
+                                this.settings().set({ key: "number-of-nodes" }, { key: "number-of-nodes", value: numberOfNodes + 1 });
                             }
                         }
                     });
@@ -270,7 +272,7 @@ export class DB {
                             const countPerId = row && Array.isArray(row.data) === true ? row.data.length : 0;
                             const rowGlobalRequestCount = this.settings().view({ key: "dynamic-request-count" }) as number;
                             if (countPerId != null && countPerId !== 0 && rowGlobalRequestCount != null && rowGlobalRequestCount !== 0) {
-                                return (countPerId / rowGlobalRequestCount) * 1e6;
+                                return countPerId / rowGlobalRequestCount;
                             } else {
                                 return 0;
                             }
@@ -324,7 +326,8 @@ export class DB {
         if (this.settings == null) {
             throw new DatabaseInitError("settings");
         }
-        this.settings().set({ key: "number-of-nodes" }, { key: "number-of-nodes", value: 0 });
+        this.settings().set({ key: "number-of-nodes" }, { key: "number-of-nodes", value: this.nodes().data.length });
+        logger.debug(`Number of nodes: ${this.nodes().data.length}`);
     }
 
     public contentPopularity(): ExtendedContentPopularityCollection {

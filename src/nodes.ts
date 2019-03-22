@@ -602,6 +602,7 @@ export class Nodes {
         });
 
         if (isExistingNode) {
+            node.connectedAt = Helpers.datetime.time();
             db.nodes().update(node);
         } else {
             node.uploaded = 0;
