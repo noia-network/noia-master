@@ -348,7 +348,8 @@ export class Cache {
             // Predict that this content will be cached.
             db.nodesContent().upsert(
                 {
-                    contentId: contentData.contentId
+                    contentId: contentData.contentId,
+                    nodeId: onlineNode.nodeId
                 },
                 {
                     contentId: contentData.contentId,
