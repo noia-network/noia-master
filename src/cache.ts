@@ -1,6 +1,6 @@
 import { ContentData } from "./content-manager";
 import { Helpers } from "./helpers";
-import { NodeStatus } from "./contracts";
+import { Node, NodeStatus } from "./contracts";
 import { db } from "./db";
 import { logger } from "./logger";
 import { nodes } from "./nodes";
@@ -77,7 +77,7 @@ export class Cache {
      * If metric is passed in data object, it is used for an update, otherwise we take the last known metric from db.
      */
     public updateScore(nodeId: string, data: Partial<ScoreWeights>): void {
-        const nodeData = db.nodes().findOne({ nodeId: nodeId });
+        let nodeData = db.nodes().findOne({ nodeId: nodeId }) as Node;
         if (nodeData == null) {
             throw new Error("Called 'updateScore' on invalid node.");
         }
@@ -101,8 +101,10 @@ export class Cache {
             scoreWeights.uptime * defaultWeights.uptime +
             scoreWeights.latency * defaultWeights.storage +
             scoreWeights.storage * defaultWeights.storage;
-        db.healthScore().upsert({ contentId: nodeId }, { contentId: nodeId, data: updatedScore });
-        logger.debug(`Update healthscore of ${nodeId}: ${updatedScore}`);
+        nodeData.healthScore = updatedScore;
+        db.nodes().upsert({ nodeId: nodeId }, nodeData);
+        // db.healthScore().upsert({ contentId: nodeId }, { contentId: nodeId, data: updatedScore });  // TODO: delete
+        logger.debug(`Updated healthscore of ${nodeId}: ${updatedScore}`);
     }
 
     /**

@@ -248,6 +248,11 @@ export function cli(master: Master): void {
             }
         });
 
+    vorpal.command("estimate-scale", "Run scale estimator for smart caching").action(async () => {
+        let scaleDiffArray = await contentManager.estimateScale();
+        logger.debug(`Estimated scale differences: ${scaleDiffArray}`);
+    });
+
     vorpal
         .command("cache-m2n", "Cache source to all or single online node.")
         .option("-s, --sourceUrl <sourceUrl>", "Source URL (default image source if not supplied).")
