@@ -892,11 +892,12 @@ export class Nodes {
                 // TODO: add debug info.
                 return;
             }
-            wire.response(this.createResponseBuffer(content, info.data.piece, dataBuf));
+            const reponseBuffer = this.createResponseBuffer(content.contentId, content.encrypt, info.data.piece, dataBuf);
+            wire.response(reponseBuffer);
             logger.verbose(
                 `Node node-id=${wire.getRemoteMetadata().nodeId} received content-id=${info.data.infoHash} piece=${
                     info.data.piece
-                } piece-sha1=${sha1(dataBuf)}.`
+                } length=${reponseBuffer.length}, piece-sha1=${sha1(reponseBuffer)}.`
             );
             if (file.pieces.length - 1 === info.data.piece) {
                 logger.info(`Node node-id=${wire.getRemoteMetadata().nodeId} received content-id=${info.data.infoHash} all pieces.`);
@@ -904,13 +905,14 @@ export class Nodes {
         });
     }
 
-    public createResponseBuffer(content: ContentData, pieceIndex: number, dataBuf: Buffer): Buffer {
-        const data = content.encrypt ? encryption.encrypt(encryption.getSecretKey(content.contentId), dataBuf) : dataBuf;
+    public createResponseBuffer(contentId: string, encrypt: boolean, pieceIndex: number, dataBuf: Buffer): Buffer {
+        const data = encrypt ? encryption.encrypt(encryption.getSecretKey(contentId), dataBuf, contentId) : dataBuf;
 
         const pieceBuf = Buffer.allocUnsafe(4);
         pieceBuf.writeUInt32BE(pieceIndex, 0);
-        const infoHashBuf = Buffer.from(content.contentId, "hex");
+        const infoHashBuf = Buffer.from(contentId, "hex");
         const buf = Buffer.concat([pieceBuf, infoHashBuf, data]);
+
         return buf;
     }
 

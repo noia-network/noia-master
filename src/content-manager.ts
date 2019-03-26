@@ -2,6 +2,8 @@ import * as EventEmitter from "events";
 import * as fs from "fs-extra";
 import * as parseTorrent from "parse-torrent";
 import * as path from "path";
+import * as FSChunkStore from "fs-chunk-store";
+import * as sha1 from "sha1";
 import StrictEventEmitter from "strict-event-emitter-types";
 
 import { db } from "./db";
@@ -11,6 +13,8 @@ import { url } from "./content-protocols/url";
 import { Helpers } from "./helpers";
 import { TorrentData } from "./contracts";
 import { config, ConfigOption } from "./config";
+import { Store } from "./nodes";
+import { encryption } from "./encryption";
 const protocols = {
     url,
     ipfs
@@ -112,7 +116,8 @@ export class ContentManager extends ContentManagerEmitter {
             announceList: [[]]
         });
         const parsedTorrentData = parseTorrent(torrentBuffer);
-        return {
+
+        const torrentData: TorrentData = {
             contentId: Helpers.getContentIdentifier(fileUrlOrInfoHash),
             contentSrc: fileUrlOrInfoHash,
             encrypt: config.get(ConfigOption.ContentEncryptionIsEnabled),
@@ -123,8 +128,36 @@ export class ContentManager extends ContentManagerEmitter {
             name: parsedTorrentData.name,
             pieceLength: parsedTorrentData.pieceLength,
             pieces: parsedTorrentData.pieces,
+            piecesIntegrity: [],
             urlList: parsedTorrentData.urlList
         };
+
+        const fsChunkStore: Store = FSChunkStore(torrentData.pieceLength, {
+            path: torrentData.file,
+            length: torrentData.length
+        });
+
+        for (const piece of torrentData.pieces) {
+            const pieceIndex = torrentData.pieces.indexOf(piece);
+            const dataBuf = await getPieceDataBuff(fsChunkStore, pieceIndex);
+            const encryptedDataBuf = encryption.encrypt(encryption.getSecretKey(torrentData.contentId), dataBuf, torrentData.contentId);
+            const encryptedPieceDigest = sha1(encryptedDataBuf);
+
+            torrentData.piecesIntegrity.push(encryptedPieceDigest);
+        }
+
+        async function getPieceDataBuff(store: Store, piece: number): Promise<Buffer> {
+            return new Promise<Buffer>((resolve, reject) => {
+                store.get(piece, (err: Error, dataBuf: Buffer) => {
+                    if (err != null) {
+                        reject(err);
+                    }
+                    resolve(dataBuf);
+                });
+            });
+        }
+
+        return torrentData;
     }
 
     public async writeFileToDisk(urlOrContent: string | Buffer, fileUrlOrInfoHash: string): Promise<void> {

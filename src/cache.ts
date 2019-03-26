@@ -376,7 +376,8 @@ export class Cache {
                 metadata: {
                     source: source,
                     infoHash: contentData.contentId,
-                    pieces: contentData.pieces.length
+                    pieces: contentData.pieces.length,
+                    piecesIntegrity: contentData.piecesIntegrity
                 }
             });
 

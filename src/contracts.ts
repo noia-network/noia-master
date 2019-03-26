@@ -29,6 +29,7 @@ export interface TorrentData {
     length: number;
     pieceLength: number;
     pieces: string[];
+    piecesIntegrity: string[];
     files: Array<{
         path: string;
         name: string;
