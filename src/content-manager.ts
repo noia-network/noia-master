@@ -41,6 +41,10 @@ export enum Protocol {
 }
 
 export interface ContentData extends TorrentData {
+    popularity?: number | null;
+    scaleTarget?: number | null;
+    scaleActual?: number | null;
+    scaleDiff?: number | null;
     type: Protocol;
 }
 
@@ -96,12 +100,80 @@ export class ContentManager extends ContentManagerEmitter {
         return extname;
     }
 
+    private arrayMax(array: Array<number>): number {
+        // Math.max() cannot handle big arrays and produces RangeError
+        let len = array.length;
+        let max = -Infinity;
+        while (len--) {
+            if (array[len] > max) {
+                max = array[len];
+            }
+        }
+        return max;
+    }
+
     public updatePopularity(srcHash: string, timestamp: number): void {
         const timeWindow = Math.ceil(
             MILISECONDS_IN_A_WEEK / Math.log10((db.settings().view({ key: "dynamic-request-count" }) as number) + 10)
         );
         db.contentPopularity().shift({ contentId: srcHash }, timestamp, timeWindow);
         logger.debug(`Content popularity for ${srcHash}=${db.contentPopularity().contentScore(srcHash)}.`);
+    }
+
+    public estimateScale(): Array<number> {
+        const nContent = db.files().data.length;
+        let maxScale = db.nodes().data.length;
+        let totalNetworkStorage = 0;
+        db.nodes().data.forEach(node => {
+            totalNetworkStorage += node.storage.total;
+        });
+        // pre-allocate variables
+        let contentSizeArray = new Array<number>(nContent);
+        let popularityArray = new Array<number>(nContent);
+        let scaleActualArray = new Array<number>(nContent);
+        let scaleTargetArray = new Array<number>(nContent);
+        let scaleDiffArray = new Array<number>(nContent);
+        // retrieve content copularity and actual scale (including pending m2n/n2n downloads)
+        let fileIndex = 0;
+        db.files().data.forEach(file => {
+            contentSizeArray[fileIndex] = file.length;
+            popularityArray[fileIndex] = db.contentPopularity().contentScore(file.contentId);
+            scaleActualArray[fileIndex] = db.nodesContent().count({ contentId: file.contentId });
+            fileIndex++;
+        });
+        // estimate target scale
+        const maxPopularity = this.arrayMax(popularityArray);
+        let maxStorageUsed = Infinity;
+        while (maxStorageUsed > totalNetworkStorage) {
+            let popToScaleFactor = maxScale / maxPopularity;
+            maxStorageUsed = 0;
+            for (let i = 0; i < nContent; i++) {
+                if (typeof popularityArray[i] !== "undefined" && popularityArray[i] > 0) {
+                    scaleTargetArray[i] = Math.max(Math.round(popToScaleFactor * popularityArray[i]), 1); // TODO: more effectively, rounding can be done while calculating scale differences
+                    maxStorageUsed += scaleTargetArray[i] * contentSizeArray[i];
+                }
+            }
+            maxScale--;
+            if (maxScale < 0) {
+                break;
+            }
+        }
+        // find scale difference and write data to files db
+        fileIndex = 0;
+        db.files().data.forEach(file => {
+            if (typeof scaleTargetArray[fileIndex] !== "undefined") {
+                scaleDiffArray[fileIndex] = scaleTargetArray[fileIndex] - scaleActualArray[fileIndex];
+            } else {
+                scaleDiffArray[fileIndex] = 0;
+            }
+            file.popularity = popularityArray[fileIndex]; // FIXME: might not be essential to store this in DB
+            file.scaleActual = scaleActualArray[fileIndex]; // FIXME: might not be essential to store this in DB
+            file.scaleTarget = scaleTargetArray[fileIndex]; // FIXME: might not be essential to store this in DB
+            file.scaleDiff = scaleDiffArray[fileIndex]; // FIXME: might not be essential to store this in DB
+            db.files().update(file);
+            fileIndex++;
+        });
+        return scaleDiffArray; // TODO: more effectively we can create min and max priority queues here, so that later we save time while sorting
     }
 
     public async createTorrent(fileUrlOrInfoHash: string): Promise<TorrentData> {
@@ -220,7 +292,13 @@ export class ContentManager extends ContentManagerEmitter {
                     const dataBuffer = await protocols[protocol].download(filteredSource);
                     await this.writeFileToDisk(dataBuffer, filteredSource);
                     const torrentData = await this.createTorrent(filteredSource);
-                    contentData = Object.assign(torrentData, { type: protocol });
+                    contentData = Object.assign(torrentData, {
+                        type: protocol,
+                        popularity: null,
+                        scaleTarget: null,
+                        scaleActual: null,
+                        scaleDiff: null
+                    });
                 }
 
                 this.emit("cache", contentData, nodeId, fromNodeId);

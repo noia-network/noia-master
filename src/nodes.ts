@@ -602,6 +602,7 @@ export class Nodes {
         });
 
         if (isExistingNode) {
+            node.connectedAt = Helpers.datetime.time();
             db.nodes().update(node);
         } else {
             node.uploaded = 0;
@@ -666,7 +667,10 @@ export class Nodes {
             healthScoreData.storage = cache.normalizeMetric(MetricName.Storage, node.storage.total);
         }
 
-        healthScoreData.uptime = cache.normalizeMetric(MetricName.Uptime, node.uptime);
+        healthScoreData.uptime = cache.normalizeMetric(
+            MetricName.Uptime,
+            Helpers.datetime.timeDiff(Helpers.datetime.time(), node.connectedAt)
+        );
         cache.updateScore(node.nodeId, healthScoreData);
 
         dataCluster.storage({
@@ -710,7 +714,10 @@ export class Nodes {
             healthScoreData.latency = cache.normalizeMetric(MetricName.Latency, node.latency);
         }
 
-        healthScoreData.uptime = cache.normalizeMetric(MetricName.Uptime, node.uptime);
+        healthScoreData.uptime = cache.normalizeMetric(
+            MetricName.Uptime,
+            Helpers.datetime.timeDiff(Helpers.datetime.time(), node.connectedAt)
+        );
         if (node.latency == null) {
             logger.warn("Node latency is invalid.");
             return;
