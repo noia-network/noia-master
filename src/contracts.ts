@@ -89,9 +89,9 @@ export interface Node {
     airdropAddress: string | null;
     bandwidthDownload?: number;
     bandwidthUpload?: number;
-    loadDownload?: number;
-    loadUpload?: number;
-    healthScore?: number;
+    loadDownload: number | null;
+    loadUpload: number | null;
+    healthScore: number;
     distance?: number;
     latency?: number;
     lastWorkOrder: string | null;
