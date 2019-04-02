@@ -54,7 +54,10 @@ export namespace Helpers {
                     }
                     const pieceLength = 4;
                     const contentIdLength = 20;
-                    resolve(nodes.createResponseBuffer(content, pieceIndex, dataBuf).length - (pieceLength + contentIdLength));
+                    resolve(
+                        nodes.createResponseBuffer(content.contentId, content.encrypt, pieceIndex, dataBuf).length -
+                            (pieceLength + contentIdLength)
+                    );
                 });
             });
         }
