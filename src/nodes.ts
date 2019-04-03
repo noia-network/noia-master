@@ -1089,7 +1089,7 @@ export class Nodes {
                     city: internalNode == null ? candidate.location.city : internalNode.city
                 },
                 ports: candidate.ports,
-                secretKey: config.get(ConfigOption.ContentEncryptionIsEnabled) ? encryption.getSecretKey(contentId) : null
+                secretKey: config.get(ConfigOption.ContentEncryptionIsEnabled) ? `${encryption.getSecretKey(contentId)}:${contentId}` : null
             });
         }
 
