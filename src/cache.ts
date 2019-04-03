@@ -3,8 +3,9 @@ import { Helpers } from "./helpers";
 import { Node, NodeStatus } from "./contracts";
 import { db } from "./db";
 import { logger } from "./logger";
-import { nodes } from "./nodes";
+import { nodes, NodeContentData } from "./nodes";
 import { config, ConfigOption } from "./config";
+import { Field, Enum } from "protobufjs";
 
 export interface ScoreWeights {
     bandwidthUploaded: number;
@@ -33,17 +34,68 @@ interface CachingQueueItem {
     fromNodeId: string | null;
 }
 
+enum loadType {
+    down = "loadDownload",
+    up = "loadUpload"
+}
+enum operationType {
+    plus = "plusOne",
+    minus = "minusOne"
+}
+
 export class Cache {
     constructor() {
         setInterval(async () => {
             const item = this.queueItems.pop();
             if (item != null) {
                 await this.toOnlineNodesRoundRobin(item.contentData, item.nodeId, item.fromNodeId);
+                this.changeLoad(item.nodeId, item.fromNodeId, operationType.minus);
             }
         }, config.get(ConfigOption.CachingInterval) * 1000);
     }
 
     private queueItems: CachingQueueItem[] = [];
+
+    private operations = {
+        plusOne: (a: number | null): number | null => {
+            if (a != null) {
+                a++;
+            }
+            return a;
+        },
+        minusOne: (a: number | null): number | null => {
+            if (a != null) {
+                a < 0 ? 0 : a--;
+            }
+            return a;
+        }
+    };
+
+    private changeLoadCounter(node: Node, attribute: loadType, thisOperation: operationType): void {
+        if (node != null) {
+            node[attribute] = this.operations[thisOperation](node[attribute]);
+            db.nodes().update(node);
+        }
+    }
+
+    public changeLoad(toNodeId: string | null, fromNodeId: string | null, thisOperation: operationType): void {
+        if (toNodeId) {
+            let nodeTo = db.nodes().findOne({ nodeId: toNodeId });
+            if (nodeTo != null) {
+                this.changeLoadCounter(nodeTo, loadType.down, thisOperation);
+            }
+        } else {
+            db.nodes().data.forEach(node => {
+                this.changeLoadCounter(node, loadType.down, thisOperation);
+            });
+        }
+        if (fromNodeId) {
+            let nodeFrom = db.nodes().findOne({ nodeId: fromNodeId });
+            if (nodeFrom != null) {
+                this.changeLoadCounter(nodeFrom, loadType.up, thisOperation);
+            }
+        }
+    }
 
     /**
      * Queue caching requests.
@@ -54,6 +106,7 @@ export class Cache {
             nodeId: toNodeId,
             fromNodeId: fromNodeId
         });
+        this.changeLoad(toNodeId, fromNodeId, operationType.plus);
     }
 
     /**
@@ -84,16 +137,25 @@ export class Cache {
         const defaultWeights = this.getScoreWeights();
         const scoreWeights: ScoreWeights = {
             bandwidthUploaded:
-                data.bandwidthUploaded != null ? data.bandwidthUploaded : nodeData.bandwidthUpload != null ? nodeData.bandwidthUpload : 0,
+                data.bandwidthUploaded != null
+                    ? data.bandwidthUploaded
+                    : nodeData.bandwidthUpload != null
+                    ? this.normalizeMetric(MetricName.BandwidthUploaded, nodeData.bandwidthUpload)
+                    : 0,
             bandwidthDownloaded:
                 data.bandwidthDownloaded != null
                     ? data.bandwidthDownloaded
                     : nodeData.bandwidthDownload != null
-                    ? nodeData.bandwidthDownload
+                    ? this.normalizeMetric(MetricName.BandwithDownloaded, nodeData.bandwidthDownload)
                     : 0,
-            uptime: data.uptime != null ? data.uptime : nodeData.uptime,
-            latency: data.latency != null ? data.latency : nodeData.latency == null ? 0 : nodeData.latency,
-            storage: data.storage != null ? data.storage : nodeData.storage.total
+            uptime: data.uptime != null ? data.uptime : 0, // nodeData.uptime  // This field is updated from DataHog and corrupts the data
+            latency:
+                data.latency != null
+                    ? data.latency
+                    : nodeData.latency != null
+                    ? this.normalizeMetric(MetricName.Latency, nodeData.latency)
+                    : 0,
+            storage: data.storage != null ? data.storage : this.normalizeMetric(MetricName.Storage, nodeData.storage.total)
         };
         const updatedScore =
             scoreWeights.bandwidthUploaded * defaultWeights.bandwidthUploaded +
@@ -112,7 +174,7 @@ export class Cache {
      * We are using online algorithms to update mean and variance.
      * Very clear derivation can be found at http://datagenetics.com/blog/november22017/index.html.
      */
-    private updateMeanVar(metricName: MetricName, metricValue: number): MeanStDev {
+    private updateMeanVar(metricName: MetricName, metricValue: number, update?: boolean): MeanStDev {
         // Extract parameters from database.
         // mean (mu_n - 1)
         let lastMean = db.settings().view({ key: `${metricName}-mean` }) as number | undefined;
@@ -125,26 +187,31 @@ export class Cache {
             lastVar = 1;
         }
 
-        // Update mean.
         const numberOfNodes = db.settings().view({ key: "number-of-nodes" }) as number | undefined;
         if (numberOfNodes == null) {
             throw new Error("Value 'numberOfNodes' is invalid.");
         }
-        const newMean = lastMean + (metricValue - lastMean) / numberOfNodes;
-        // Update variance.
-        const newVar = lastVar + (metricValue - lastMean) * (metricValue - newMean);
 
-        // Write parameters into database.
-        // mean (mu_n)
-        db.settings().set({ key: `${metricName}-mean` }, { key: `${metricName}-mean`, value: newMean });
-        // cummulative variance (S_n)
-        db.settings().set({ key: `${metricName}-var` }, { key: `${metricName}-var`, value: newVar });
+        if (update != null && update == true) {
+            // Update mean.
+            const newMean = lastMean + (metricValue - lastMean) / numberOfNodes;
+            // Update variance.
+            const newVar = lastVar + (metricValue - lastMean) * (metricValue - newMean);
 
-        return { mean: newMean, stdev: Math.sqrt(newVar / numberOfNodes) };
+            // Write parameters into database.
+            // mean (mu_n)
+            db.settings().set({ key: `${metricName}-mean` }, { key: `${metricName}-mean`, value: newMean });
+            // cummulative variance (S_n)
+            db.settings().set({ key: `${metricName}-var` }, { key: `${metricName}-var`, value: newVar });
+
+            return { mean: newMean, stdev: Math.sqrt(newVar / numberOfNodes) };
+        } else {
+            return { mean: lastMean, stdev: Math.sqrt(lastVar / numberOfNodes) };
+        }
     }
 
-    public normalizeMetric(metricName: MetricName, metricValue: number): number {
-        const params = this.updateMeanVar(metricName, metricValue);
+    public normalizeMetric(metricName: MetricName, metricValue: number, update?: boolean): number {
+        const params = this.updateMeanVar(metricName, metricValue, update);
         // With 99% probability the normalized value will be positive.
         const stdNormalAdj = 2.575;
         let sign = 1;

@@ -566,7 +566,10 @@ export class Nodes {
                     city: internalNodeMetadata != null ? internalNodeMetadata.city : geo != null && geo.country != null ? geo.city : ""
                 },
                 airdropAddress: null,
-                lastWorkOrder: null
+                lastWorkOrder: null,
+                loadDownload: 0,
+                loadUpload: 0,
+                healthScore: 0
             };
         }
 
@@ -664,13 +667,10 @@ export class Nodes {
 
         const healthScoreData: Partial<ScoreWeights> = {};
         if (node.nodeId && node.storage.total !== -1) {
-            healthScoreData.storage = cache.normalizeMetric(MetricName.Storage, node.storage.total);
+            healthScoreData.storage = cache.normalizeMetric(MetricName.Storage, node.storage.total, true);
         }
 
-        healthScoreData.uptime = cache.normalizeMetric(
-            MetricName.Uptime,
-            Helpers.datetime.timeDiff(Helpers.datetime.time(), node.connectedAt)
-        );
+        healthScoreData.uptime = cache.normalizeMetric(MetricName.Uptime, Helpers.datetime.time(node.connectedAt), true);
         cache.updateScore(node.nodeId, healthScoreData);
 
         dataCluster.storage({
@@ -699,25 +699,22 @@ export class Nodes {
         const healthScoreData: Partial<ScoreWeights> = {};
         if (bandwidthDataEvent.data.speeds && bandwidthDataEvent.data.speeds.originalUpload) {
             node.bandwidthUpload = bandwidthDataEvent.data.speeds.originalUpload;
-            healthScoreData.bandwidthUploaded = cache.normalizeMetric(MetricName.BandwidthUploaded, node.bandwidthUpload);
+            healthScoreData.bandwidthUploaded = cache.normalizeMetric(MetricName.BandwidthUploaded, node.bandwidthUpload, true);
         } else {
             node.bandwidthUpload = -1;
         }
         if (bandwidthDataEvent.data.speeds && bandwidthDataEvent.data.speeds.originalUpload) {
             node.bandwidthDownload = bandwidthDataEvent.data.speeds.originalDownload;
-            healthScoreData.bandwidthDownloaded = cache.normalizeMetric(MetricName.BandwithDownloaded, node.bandwidthDownload);
+            healthScoreData.bandwidthDownloaded = cache.normalizeMetric(MetricName.BandwithDownloaded, node.bandwidthDownload, true);
         } else {
             node.bandwidthDownload = -1;
         }
         if (bandwidthDataEvent.data.server.ping != null) {
             node.latency = bandwidthDataEvent.data.server.ping;
-            healthScoreData.latency = cache.normalizeMetric(MetricName.Latency, node.latency);
+            healthScoreData.latency = cache.normalizeMetric(MetricName.Latency, node.latency, true);
         }
 
-        healthScoreData.uptime = cache.normalizeMetric(
-            MetricName.Uptime,
-            Helpers.datetime.timeDiff(Helpers.datetime.time(), node.connectedAt)
-        );
+        healthScoreData.uptime = cache.normalizeMetric(MetricName.Uptime, Helpers.datetime.time(node.connectedAt), true);
         if (node.latency == null) {
             logger.warn("Node latency is invalid.");
             return;
@@ -941,6 +938,8 @@ export class Nodes {
         // Setting up nodes status offline
         if (node) {
             node.status = NodeStatus.offline;
+            node.loadDownload = null;
+            node.loadUpload = null;
             node.disconnectedAt = Helpers.datetime.time();
 
             uptime = Helpers.datetime.timeDiff(node.disconnectedAt, node.connectedAt);

@@ -292,13 +292,7 @@ export class ContentManager extends ContentManagerEmitter {
                     const dataBuffer = await protocols[protocol].download(filteredSource);
                     await this.writeFileToDisk(dataBuffer, filteredSource);
                     const torrentData = await this.createTorrent(filteredSource);
-                    contentData = Object.assign(torrentData, {
-                        type: protocol,
-                        popularity: null,
-                        scaleTarget: null,
-                        scaleActual: null,
-                        scaleDiff: null
-                    });
+                    contentData = Object.assign(torrentData, { type: protocol });
                 }
 
                 this.emit("cache", contentData, nodeId, fromNodeId);
