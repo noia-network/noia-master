@@ -4,6 +4,7 @@ import * as geoip from "geoip-lite";
 import * as geolib from "geolib";
 import * as http from "http";
 import * as sha1 from "sha1";
+import * as getDomain from "getdomain";
 import {
     Seeding,
     Uploaded,
@@ -394,9 +395,20 @@ export class Nodes {
         });
         wire.on("uploaded", info => {
             logger.verbose(`Node node-id=${Helpers.getNodeUid(wire.getRemoteMetadata())} uploaded bytes-count=${info.data.uploaded}.`);
+
+            const getDomainOrigin = (contentId: string): string => {
+                const file = db.files().findOne({ contentId });
+                if (file == null) {
+                    // There could be case that internal data was cleared...
+                    return "";
+                }
+                return getDomain.origin(file.contentSrc);
+            };
+
             dataCluster.upload({
                 bytesCount: info.data.uploaded,
                 contentId: info.data.infoHash,
+                contentDomain: getDomainOrigin(info.data.infoHash),
                 ip: info.data.ip,
                 nodeId: Helpers.getNodeUid(wire.getRemoteMetadata()),
                 timestamp: info.timestamp
