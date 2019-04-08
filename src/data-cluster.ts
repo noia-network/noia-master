@@ -91,6 +91,7 @@ export interface UploadDto {
     nodeId: string;
     timestamp: number;
     contentId: string;
+    contentDomain: string;
     bytesCount: number;
     ip: string;
 }
