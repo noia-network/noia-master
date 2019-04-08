@@ -683,7 +683,7 @@ export class Nodes {
             total: parseInt(storageDataEvent.data.total.toString()) ? parseInt(storageDataEvent.data.total.toString()) : -1,
             used: parseInt(storageDataEvent.data.used.toString()) ? parseInt(storageDataEvent.data.used.toString()) : -1,
             available: parseInt(storageDataEvent.data.available.toString()) ? parseInt(storageDataEvent.data.available.toString()) : -1,
-            arch: storageDataEvent.data.available == null ? "" : String(storageDataEvent.data.available),
+            arch: storageDataEvent.data.arch == null ? "" : String(storageDataEvent.data.arch),
             deviceType: storageDataEvent.data.deviceType == null ? "" : String(storageDataEvent.data.deviceType),
             platform: storageDataEvent.data.platform == null ? "" : String(storageDataEvent.data.platform),
             release: storageDataEvent.data.release == null ? "" : String(storageDataEvent.data.release)
