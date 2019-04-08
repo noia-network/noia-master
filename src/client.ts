@@ -177,7 +177,6 @@ export class Client {
                     bufferLength: contentData.length,
                     contentId: contentData.contentId,
                     pieceBufferLength: contentData.pieceLength,
-                    // @ts-ignore
                     piecesIntegrity: contentData.pieces
                 },
                 settings: getSettings()

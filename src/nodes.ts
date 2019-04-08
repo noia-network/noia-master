@@ -540,7 +540,11 @@ export class Nodes {
                 storage: {
                     available: 0,
                     used: 0,
-                    total: 0
+                    total: 0,
+                    arch: "",
+                    deviceType: "",
+                    platform: "",
+                    release: ""
                 },
                 connections: {
                     webrtc: {
@@ -625,7 +629,11 @@ export class Nodes {
             node.storage = {
                 used: 0,
                 available: 0,
-                total: 0
+                total: 0,
+                arch: "",
+                deviceType: "",
+                platform: "",
+                release: ""
             };
             node.latency = 0;
             node.bandwidthUpload = 0;
@@ -674,7 +682,11 @@ export class Nodes {
         node.storage = {
             total: parseInt(storageDataEvent.data.total.toString()) ? parseInt(storageDataEvent.data.total.toString()) : -1,
             used: parseInt(storageDataEvent.data.used.toString()) ? parseInt(storageDataEvent.data.used.toString()) : -1,
-            available: parseInt(storageDataEvent.data.available.toString()) ? parseInt(storageDataEvent.data.available.toString()) : -1
+            available: parseInt(storageDataEvent.data.available.toString()) ? parseInt(storageDataEvent.data.available.toString()) : -1,
+            arch: storageDataEvent.data.available == null ? "" : String(storageDataEvent.data.available),
+            deviceType: storageDataEvent.data.deviceType == null ? "" : String(storageDataEvent.data.deviceType),
+            platform: storageDataEvent.data.platform == null ? "" : String(storageDataEvent.data.platform),
+            release: storageDataEvent.data.release == null ? "" : String(storageDataEvent.data.release)
         };
 
         const healthScoreData: Partial<ScoreWeights> = {};
@@ -690,7 +702,11 @@ export class Nodes {
             timestamp: Date.now(),
             storageTotal: node.storage.total,
             storageAvailable: node.storage.available,
-            storageUsed: node.storage.used
+            storageUsed: node.storage.used,
+            arch: node.storage.arch,
+            deviceType: node.storage.deviceType,
+            platform: node.storage.platform,
+            release: node.storage.release
         });
 
         db.nodes().update(node);

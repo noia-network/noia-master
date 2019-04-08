@@ -79,6 +79,10 @@ export interface Node {
         used: number;
         available: number;
         total: number;
+        arch: string;
+        release: string;
+        platform: string;
+        deviceType: string;
     };
     tokens?: number;
     uploaded?: number;

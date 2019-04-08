@@ -53,6 +53,10 @@ export interface StorageDto {
     storageTotal: number;
     storageAvailable: number;
     storageUsed: number;
+    arch: string;
+    release: string;
+    platform: string;
+    deviceType: string;
 }
 
 export interface MetadataDto {

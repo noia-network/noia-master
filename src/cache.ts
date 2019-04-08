@@ -447,7 +447,6 @@ export class Cache {
                     source: source,
                     infoHash: contentData.contentId,
                     pieces: contentData.pieces.length,
-                    // @ts-ignore
                     piecesIntegrity: contentData.piecesIntegrity
                 }
             });
