@@ -26,7 +26,7 @@ export class Encryption {
     }
 
     public getSecretKey(contentId: string): string {
-        return sha1(contentId + config.get(ConfigOption.ContentEncryptionSecretSalt)).substring(10, 30);
+        return sha1(contentId + config.get(ConfigOption.ContentEncryptionSecretSalt)).substring(0, 32);
     }
 }
 
