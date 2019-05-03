@@ -6,7 +6,7 @@ import { Collection } from "lokijs";
 import { ContentData } from "./content-manager";
 import { Helpers } from "./helpers";
 import { NodeContentData } from "./nodes";
-import { NodeStatus, Node } from "./contracts";
+import { LocationData, NodeStatus, Node } from "./contracts";
 import { config, ConfigOption } from "./config";
 import { logger } from "./logger";
 
@@ -34,21 +34,15 @@ interface ExtendedNodesContentCollection extends NodesContentCollection {
     upsert: (query: Partial<NodeContentData>, data: NodeContentData) => void;
 }
 
-type ContentPopularityData = { contentId: string; data: number[] };
+type ContentPopularityData = { contentId: string; data: number[]; dataLocality: LocationData[] };
 type ContentPopularityCollection = Collection<ContentPopularityData>;
 interface ExtendedContentPopularityCollection extends ContentPopularityCollection {
     contentScore: (contentId: string) => number;
     upsert: (query: Partial<ContentPopularityData>, data: ContentPopularityData) => void;
-    shift: (query: Partial<ContentPopularityData>, timestamp: number, timeInterval: number) => void;
+    shift: (query: Partial<ContentPopularityData>, timestamp: number, timeInterval: number, location: LocationData) => void;
+    prune: (timeInterval: number) => void;
     sum: (contentId: string) => number;
 }
-
-// TODO: delete
-// type HealthScoreData = { contentId: string; data: number };
-// type HealthScoreCollection = Collection<HealthScoreData>;
-// interface ExtendedHealthScoreCollection extends HealthScoreCollection {
-//     upsert: (query: Partial<HealthScoreData>, data: HealthScoreData) => void;
-// }
 
 const AUTOSAVE = true;
 const AUTOSAVE_INTERVAL = 1000;
@@ -63,7 +57,6 @@ class DatabaseInitError extends Error {
 export class DB {
     public contentPopularityCollection?: ExtendedContentPopularityCollection;
     public filesCollection?: ExtendedFilesCollection;
-    // public healthScoreCollection?: ExtendedHealthScoreCollection;  // TODO: delete
     public nodesCollection?: ExtendedNodesCollection;
     public nodesContentCollection?: ExtendedNodesContentCollection;
     public settingsCollection?: ExtendedSettingsCollection;
@@ -79,7 +72,6 @@ export class DB {
         await Promise.all([
             this.initContentPopularityDatabase(dir),
             this.initFilesDatabase(dir),
-            //this.initHealthScoreDatabase(dir), // TODO: delete
             this.initNodesContentDatabase(dir),
             this.initNodesDatabase(dir),
             this.initSettingsDatabase(dir)
@@ -171,7 +163,7 @@ export class DB {
                                 nodesCollection.update(row);
                             } else {
                                 nodesCollection.insert(data);
-                                let numberOfNodes = this.settings().view({ key: "number-of-nodes" }) as number;
+                                const numberOfNodes = this.settings().view({ key: "number-of-nodes" }) as number;
                                 this.settings().set({ key: "number-of-nodes" }, { key: "number-of-nodes", value: numberOfNodes + 1 });
                             }
                         }
@@ -235,7 +227,7 @@ export class DB {
                                 contentPopularityCollection.insert(data);
                             }
                         },
-                        shift: (query: Partial<ContentPopularityData>, timestamp: number, timeInterval: number) => {
+                        shift: (query: Partial<ContentPopularityData>, timestamp: number, timeInterval: number, location: LocationData) => {
                             const row = contentPopularityCollection.findOne(query);
                             let rowGlobalRequestCount = this.settings().view({ key: "dynamic-request-count" }) as number;
                             if (rowGlobalRequestCount == null) {
@@ -249,20 +241,46 @@ export class DB {
                                 // Remove old timestamps from the array.
                                 row.data.forEach((element: number) => {
                                     if (element <= timestamp - timeInterval) {
-                                        row.data.splice(row.data.indexOf(element), 1);
+                                        const removeIdx = row.data.indexOf(element);
+                                        row.data.splice(removeIdx, 1);
+                                        row.dataLocality.splice(removeIdx, 1);
                                         rowGlobalRequestCount -= 1;
                                     }
                                 });
                                 row.data.push(timestamp);
+                                row.dataLocality.push(location);
                                 rowGlobalRequestCount += 1;
                                 contentPopularityCollection.update(row);
                             } else if (row == null) {
                                 if (query.contentId == null) {
                                     throw new Error("Invalid 'contentId'.");
                                 }
-                                contentPopularityCollection.insert({ contentId: query.contentId, data: [timestamp] });
+                                contentPopularityCollection.insert({
+                                    contentId: query.contentId,
+                                    data: [timestamp],
+                                    dataLocality: [location]
+                                });
                                 rowGlobalRequestCount += 1;
                             }
+                            this.settings().set(
+                                { key: "dynamic-request-count" },
+                                { key: "dynamic-request-count", value: rowGlobalRequestCount }
+                            );
+                        },
+                        prune: (timeInterval: number) => {
+                            const pruneUntilDate = Date.now() - timeInterval;
+                            let rowGlobalRequestCount = 0;
+                            contentPopularityCollection.data.forEach(row => {
+                                rowGlobalRequestCount += row.data.length;
+                                row.data.forEach((element: number) => {
+                                    if (element <= pruneUntilDate) {
+                                        const removeIdx = row.data.indexOf(element);
+                                        row.data.splice(removeIdx, 1);
+                                        row.dataLocality.splice(removeIdx, 1);
+                                        rowGlobalRequestCount -= 1;
+                                    }
+                                });
+                            });
                             this.settings().set(
                                 { key: "dynamic-request-count" },
                                 { key: "dynamic-request-count", value: rowGlobalRequestCount }
@@ -291,34 +309,6 @@ export class DB {
             });
         });
     }
-
-    // TODO: delete
-    // private async initHealthScoreDatabase(dir: string): Promise<void> {
-    //     return new Promise<void>(resolve => {
-    //         const database = new lokijs(path.join(dir, "healthScore"), {
-    //             autosave: AUTOSAVE,
-    //             autosaveInterval: AUTOSAVE_INTERVAL,
-    //             autoload: AUTOLOAD,
-    //             autoloadCallback: () => {
-    //                 const healthScoreCollection: HealthScoreCollection = database.addCollection("healthScore", {
-    //                     unique: ["contentId"]
-    //                 });
-    //                 this.healthScoreCollection = Object.assign(healthScoreCollection, {
-    //                     upsert: (query: Partial<HealthScoreData>, data: HealthScoreData) => {
-    //                         const row = healthScoreCollection.findOne(query);
-    //                         if (row) {
-    //                             Object.assign(row, data);
-    //                             healthScoreCollection.update(row);
-    //                         } else {
-    //                             healthScoreCollection.insert(data);
-    //                         }
-    //                     }
-    //                 });
-    //                 resolve();
-    //             }
-    //         });
-    //     });
-    // }
 
     public updateNodesStatuses(): void {
         const nodes = this.nodes().find({ status: NodeStatus.online });
@@ -352,14 +342,6 @@ export class DB {
         }
         return this.filesCollection;
     }
-
-    // TODO: delete
-    // public healthScore(): ExtendedHealthScoreCollection {
-    //     if (this.healthScoreCollection == null) {
-    //         throw new DatabaseInitError("healthScoreCollection");
-    //     }
-    //     return this.healthScoreCollection;
-    // }
 
     public nodes(): ExtendedNodesCollection {
         if (this.nodesCollection == null) {

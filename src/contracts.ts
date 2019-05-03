@@ -16,9 +16,14 @@ export interface LocationData {
     city: string;
 }
 
+export interface CentroidLocationData extends LocationData {
+    count: number;
+}
+
 export interface TorrentData {
     contentId: string;
     contentSrc: string;
+    contentSize: number;
     /**
      * Flag if torrent was sent to nodes expected to be encrypted.
      * In future this flag could be used to actually decide if encryption should be done.
@@ -88,10 +93,10 @@ export interface Node {
      */
     uptime: number;
     airdropAddress: string | null;
-    bandwidthDownload?: number;
-    bandwidthUpload?: number;
-    loadDownload: number | null;
-    loadUpload: number | null;
+    bandwidthDownload: number;
+    bandwidthUpload: number;
+    loadDownload: number;
+    loadUpload: number;
     healthScore: number;
     distance?: number;
     latency?: number;

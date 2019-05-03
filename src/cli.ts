@@ -10,14 +10,15 @@ import { CliHelpers } from "./cli-helpers";
 import { Helpers } from "./helpers";
 import { NodeContentData } from "./nodes";
 import { config, ConfigOption } from "./config";
-import { contentManager } from "./content-manager";
+import { contentManager, ClusteringAlgorithm } from "./content-manager";
 import { dataCluster } from "./data-cluster";
 import { db } from "./db";
 import { logger, LogLevel } from "./logger";
-import { NodeStatus } from "./contracts";
+import { NodeStatus, CentroidLocationData } from "./contracts";
 import { nodes } from "./nodes";
 import { Master } from "./master";
 import { whitelist } from "./whitelist";
+import { cache, ReplacementFactor } from "./cache";
 
 const DEFAULT_IMAGE_SOURCE = "https://noia.network/samples/image.jpg";
 const DEFAULT_VIDEO_SOURCE = "https://noia.network/samples/video.mp4";
@@ -36,6 +37,17 @@ protobuf.load(Wire.getProtoFilePath(), (err, root) => {
     }
     ContentResponseProtobuf = root.lookupType("ContentResponse");
 });
+
+function recursiveCentroidPrinting(centroids: CentroidLocationData[], c: number): void {
+    if (c < centroids.length) {
+        const centroid = centroids[c];
+        logger.debug(`Cluster with hit-count ${centroid.count} and centroid [${centroid.latitude}, ${centroid.longitude}].`);
+        c++;
+        setTimeout(() => {
+            recursiveCentroidPrinting(centroids, c);
+        }, 100);
+    }
+}
 
 export function cli(master: Master): void {
     vorpal.command("create-uptimes-csv").action(async args => {
@@ -249,8 +261,51 @@ export function cli(master: Master): void {
         });
 
     vorpal.command("estimate-scale", "Run scale estimator for smart caching").action(async () => {
-        let scaleDiffArray = await contentManager.estimateScale();
-        logger.debug(`Estimated scale differences: ${scaleDiffArray}`);
+        await contentManager.estimateScale();
+        db.files().data.forEach(file => {
+            CliHelpers.log(`Content ${file.contentSrc} target scale and diff: [${file.scaleTarget}; ${file.scaleDiff}]`);
+        });
+    });
+
+    vorpal
+        .command("estimate-locality", "Run KMeans clustering algorithm from node-kmeans library")
+        .option("-a, --algorithm <algorithm>", "algorithm name")
+        .option("-c, --contentId <contentId>", "Content id.")
+        .option("-s, --sourceUrl <sourceUrl>", "Source URL (default image source if not supplied).")
+        .action(async args => {
+            let content = null;
+            let algorithm = null;
+            if (args.options.contentId != null) {
+                content = db.files().findOne({ contentId: args.options.contentId });
+            } else if (args.options.sourceUrl != null) {
+                content = db.files().findOne({ contentSrc: args.options.sourceUrl });
+            } else {
+                CliHelpers.log(`Unknown content ID or source URL supplied.`);
+            }
+            if (args.options.algorithm) {
+                if (
+                    args.options.algorithm === ClusteringAlgorithm.dbscan ||
+                    args.options.algorithm === ClusteringAlgorithm.kmeans ||
+                    args.options.algorithm === ClusteringAlgorithm.optics
+                ) {
+                    algorithm = args.options.algorithm;
+                } else {
+                    CliHelpers.log(`Unknown algorithm name supplied.`);
+                }
+            }
+            if (content != null) {
+                let centroids: CentroidLocationData[] = [];
+                centroids = await contentManager.estimateLocality(content.contentId, algorithm);
+                logger.debug(`Content with id=${content.contentId} popular in ${centroids.length} location(s)`);
+                const c = 0;
+                recursiveCentroidPrinting(centroids, c);
+            } else {
+                CliHelpers.log(`Content not found.`);
+            }
+        });
+
+    vorpal.command("smart-caching", "Run smart caching algorithm based on scale and locality").action(async () => {
+        cache.smartCachingDecisions(ReplacementFactor.scale);
     });
 
     vorpal

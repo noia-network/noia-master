@@ -2,12 +2,10 @@ import * as createTorrent from "create-torrent";
 import * as http from "http";
 import * as sha1 from "sha1";
 
-import { ContentData } from "./content-manager";
 import { NodeContentData } from "./nodes";
 import { config, ConfigOption } from "./config";
 import { db } from "./db";
 import { logger } from "./logger";
-import { nodes, Store } from "./nodes";
 
 interface TorrentOptions {
     name: string;
@@ -23,44 +21,24 @@ export namespace Helpers {
         if (nodesContentData != null) {
             for (const nodeContentData of nodesContentData) {
                 const contentData = db.files().findOne({ contentId: nodeContentData.contentId });
-                if (contentData != null) {
-                    accSize += await Helpers.getContentSize(contentData);
+                if (contentData != null && contentData.contentSize) {
+                    accSize += contentData.contentSize;
                 }
             }
         }
         return accSize;
     }
 
-    /**
-     * Calculate content size in bytes.
-     */
-    export async function getContentSize(contentData: ContentData): Promise<number> {
-        const contentStore = nodes.getStore(contentData);
-        let size = 0;
-        // TODO: Optimize.
-        for (let i = 0; i <= contentStore.lastChunkIndex; i++) {
-            const pieceSize = await storeContentGetPieceLength(contentStore, contentData, i);
-            size += pieceSize;
-            // logger.info(`Content-id=${contentData.contentId} content-piece-size=${pieceSize} curr-acc-content-size=${size}.`);
+    export async function getRemovableContentsSize(contentsDone: NodeContentData[]): Promise<number> {
+        // const contentsInCache: Array<ContentData & LokiObj> = [];
+        let accSize = 0;
+        for (const contentDone of contentsDone) {
+            const contentData = db.files().findOne({ contentId: contentDone.contentId });
+            if (contentData != null && contentData.scaleDiff < 0 && contentData.contentSize != null) {
+                accSize += contentData.contentSize;
+            }
         }
-        return size;
-
-        async function storeContentGetPieceLength(store: Store, content: ContentData, pieceIndex: number): Promise<number> {
-            return new Promise<number>((resolve, reject) => {
-                store.get(pieceIndex, (err: Error, dataBuf: Buffer) => {
-                    if (err != null) {
-                        reject(err);
-                        return;
-                    }
-                    const pieceLength = 4;
-                    const contentIdLength = 20;
-                    resolve(
-                        nodes.createResponseBuffer(content.contentId, content.encrypt, pieceIndex, dataBuf).length -
-                            (pieceLength + contentIdLength)
-                    );
-                });
-            });
-        }
+        return accSize;
     }
 
     /**
