@@ -83,6 +83,7 @@ declare module "sha1";
 declare module "create-torrent";
 declare module "fs-chunk-store";
 declare module "ip-to-int";
+declare module "density-clustering";
 declare module "parse-torrent" {
     namespace ParseTorrentTypes {
         interface FileData {

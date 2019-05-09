@@ -48,12 +48,16 @@ export enum ConfigOption {
     BlockchainProviderUrl = "blockchain.providerUrl",
     BlockchainRewardAmount = "blockchain.rewardAmount",
     BlockchainRewardInterval = "blockchain.rewardInterval",
+    CachingRestartInterval = "caching.restartInterval",
     CachingInterval = "caching.interval",
     CachingRemoveDelay = "caching.removeDelay",
     CachingReturnedNodesCount = "caching.returnedNodesCount",
     CachingWhitelist = "caching.whitelist",
     CachingAuto = "caching.auto",
+    CachingInitialCopies = "caching.initialCopies",
     CachingMaxDownloads = "caching.maxDownloads",
+    CachingScaleEpsilon = "caching.scaleEpsilon",
+    CachingLoadBound = "caching.loadBound",
     CachingOnlyToSucceededWebRTC = "caching.onlyToSucceededWebRtc",
     WebRtcCheckSchedulerInterval = "webrtc.checkSchedulerInterval"
 }
@@ -102,12 +106,16 @@ export interface ConfigSettings {
     [ConfigOption.BlockchainProviderUrl]: string;
     [ConfigOption.BlockchainRewardAmount]: string;
     [ConfigOption.BlockchainRewardInterval]: number;
+    [ConfigOption.CachingRestartInterval]: number;
     [ConfigOption.CachingInterval]: number;
     [ConfigOption.CachingRemoveDelay]: number;
     [ConfigOption.CachingReturnedNodesCount]: number;
     [ConfigOption.CachingWhitelist]: string[];
     [ConfigOption.CachingAuto]: boolean;
+    [ConfigOption.CachingInitialCopies]: number;
     [ConfigOption.CachingMaxDownloads]: number;
+    [ConfigOption.CachingScaleEpsilon]: number;
+    [ConfigOption.CachingLoadBound]: number;
     [ConfigOption.CachingOnlyToSucceededWebRTC]: boolean;
     [ConfigOption.WebRtcCheckSchedulerInterval]: number;
 }
@@ -133,6 +141,7 @@ export class Config {
         this.checkMandatory(ConfigOption.ApiPort);
         this.checkMandatory(ConfigOption.MasterLocationCountryCode);
         this.checkMandatory(ConfigOption.MasterIp);
+        this.checkMandatory(ConfigOption.CachingRestartInterval);
         this.checkMandatory(ConfigOption.CachingInterval);
         this.checkMandatory(ConfigOption.CachingRemoveDelay);
         this.checkMandatory(ConfigOption.ContentMaxDownloadSize);
@@ -140,7 +149,10 @@ export class Config {
         this.checkMandatory(ConfigOption.CachingReturnedNodesCount);
         this.checkMandatory(ConfigOption.CachingWhitelist);
         this.checkMandatory(ConfigOption.CachingAuto);
+        this.checkMandatory(ConfigOption.CachingInitialCopies);
         this.checkMandatory(ConfigOption.CachingMaxDownloads);
+        this.checkMandatory(ConfigOption.CachingScaleEpsilon);
+        this.checkMandatory(ConfigOption.CachingLoadBound);
         this.checkMandatory(ConfigOption.CachingOnlyToSucceededWebRTC);
         this.checkMandatory(ConfigOption.DataClusterHost);
         this.checkMandatory(ConfigOption.DataClusterQueueIntervalMs);

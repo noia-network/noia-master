@@ -12,6 +12,7 @@ import { contentManager } from "./content-manager";
 import { db } from "./db";
 import { logger } from "./logger";
 import { whitelist } from "./whitelist";
+import { cache } from "./cache";
 
 export interface RequestSettingsData {
     proxyControlAddress?: string;
@@ -108,9 +109,8 @@ export class Client {
         }
 
         const contentData = db.files().findOne({ contentId: contentId });
+        contentManager.updatePopularity(contentId, Date.now(), this.location);
         if (contentData == null) {
-            // TODO: Reintroduce and make auto cache configurable.
-            // contentManager.download(src);
             const responseMsg = `Content content-id=${contentId}, src=${clientRequestData.src} not found.`;
             logger.debug(responseMsg);
             this.response({
@@ -120,13 +120,10 @@ export class Client {
                 status: 404
             });
             if (config.get(ConfigOption.CachingAuto)) {
-                logger.caching(`Autocaching content with src='${clientRequestData.src}'.`);
-                contentManager.queueCaching(clientRequestData.src, null, null);
+                cache.autocachingDecisions(clientRequestData.src, this.location);
             }
             return;
         }
-
-        contentManager.updatePopularity(contentId, Date.now());
 
         // Find nodes by source and calculate distance between node and client.
         const candidates = this.master.nodes.getCandidates(clientRequestData, this.location);
@@ -143,8 +140,7 @@ export class Client {
 
         // TODO: refactor.
         if (Object.keys(peers).length === 0 && config.get(ConfigOption.CachingAuto)) {
-            logger.caching(`Autocaching (no peers) content,  src=${clientRequestData.src}.`);
-            contentManager.queueCaching(clientRequestData.src, null, null);
+            cache.autocachingDecisions(clientRequestData.src, this.location);
         }
 
         api.register(ApiEventType.ClientRequest, {

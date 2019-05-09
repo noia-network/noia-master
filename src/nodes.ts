@@ -27,7 +27,8 @@ import { blockchain } from "./blockchain";
 import { cache, ScoreWeights, MetricName } from "./cache";
 import { cloudflare } from "./cloudflare";
 import { config, ConfigOption } from "./config";
-import { contentManager, ContentManager, ContentData } from "./content-manager";
+import { TorrentData } from "./contracts";
+import { contentManager, ContentManager } from "./content-manager";
 import { dataCluster } from "./data-cluster";
 import { db } from "./db";
 import { encryption } from "./encryption";
@@ -585,6 +586,8 @@ export class Nodes {
                 lastWorkOrder: null,
                 loadDownload: 0,
                 loadUpload: 0,
+                bandwidthDownload: 0,
+                bandwidthUpload: 0,
                 healthScore: 0
             };
         }
@@ -610,7 +613,8 @@ export class Nodes {
         node.connections.ws.port = wire.getRemoteMetadata().connections.ws;
         node.connections.wss.checkStatus = "not-checked";
         node.connections.wss.port = wire.getRemoteMetadata().connections.wss;
-
+        node.loadDownload = 0;
+        node.loadUpload = 0;
         api.register(ApiEventType.Connection, {
             from: {
                 countryCode: node.location.countryCode
@@ -908,14 +912,8 @@ export class Nodes {
 
         this.stores[file.file].get(info.data.piece, (err: Error, dataBuf: Buffer) => {
             if (err) {
-                const restarTime = 30 * 1000;
-                // Very rare case where file is not opened
-                setTimeout(() => {
-                    logger.info(`FSChunkStore - restarting in ${restarTime}ms.`);
-                    this.onRequested(wire, info);
-                }, restarTime);
-
-                return logger.error("FSChunkStore - not working: ", err);
+                logger.error("Content does not exist on master drive", err);
+                return;
             }
 
             const content = db.files().findOne({ contentId: info.data.infoHash });
@@ -966,8 +964,8 @@ export class Nodes {
         // Setting up nodes status offline
         if (node) {
             node.status = NodeStatus.offline;
-            node.loadDownload = null;
-            node.loadUpload = null;
+            node.loadDownload = 0;
+            node.loadUpload = 0;
             node.disconnectedAt = Helpers.datetime.time();
 
             uptime = Helpers.datetime.timeDiff(node.disconnectedAt, node.connectedAt);
@@ -997,7 +995,7 @@ export class Nodes {
         delete this._wires[wire.getRemoteMetadata().nodeId];
     }
 
-    public getStore(file: ContentData): Store {
+    public getStore(file: TorrentData): Store {
         this.stores[file.file] = FSChunkStore(file.pieceLength, {
             path: file.file,
             length: file.length

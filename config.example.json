@@ -43,12 +43,16 @@
     "blockchain.rewardInterval": 3600,
     "blockchain.rewardAmount": "1",
     "blockchain.isEnabled": false,
+    "caching.restartInterval": 120,
     "caching.interval": 10,
     "caching.removeDelay": 3,
     "caching.returnedNodesCount": 5,
     "caching.whitelist": ["*"],
     "caching.auto": true,
+    "caching.initialCopies": 2,
     "caching.maxDownloads": 20,
+    "caching.scaleEpsilon": 0,
+    "caching.loadBound": 100000,
     "caching.onlyToSucceededWebRtc": true,
     "webrtc.checkSchedulerInterval": 5
 }
