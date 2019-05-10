@@ -1,7 +1,7 @@
 import * as geolib from "geolib";
 import * as fs from "fs";
 
-import { ContentData, contentManager, ClusteringAlgorithm } from "./content-manager";
+import { ContentData, contentManager } from "./content-manager";
 import { Helpers } from "./helpers";
 import { LocationData, Node, NodeStatus } from "./contracts";
 import { db } from "./db";
@@ -201,9 +201,10 @@ export class Cache {
      * If metric is passed in data object, it is used for an update, otherwise we take the last known metric from db.
      */
     public updateScore(nodeId: string, data: Partial<ScoreWeights>): void {
-        const nodeData = db.nodes().findOne({ nodeId: nodeId }) as Node;
+        const nodeData = db.nodes().findOne({ nodeId: nodeId });
         if (nodeData == null) {
-            throw new Error("Called 'updateScore' on invalid node.");
+            logger.error("Called 'updateScore' on invalid node.");
+            return;
         }
         const defaultWeights = this.getScoreWeights();
         const scoreWeights: ScoreWeights = {
@@ -506,7 +507,7 @@ export class Cache {
                 logger.debug(`Processing content ${content.contentSrc} with number of scale difference ${content.scaleDiff}`);
                 // 5. Get centroids of clustered demand locations, sorted in descending order by cluster size. Note: Optics clustering
                 //    algorithm is used, since: 1) it is density based, 2) supports geodedic distance function, 3) returns outliers
-                const locationCentroids = await contentManager.estimateLocality(content.contentId, ClusteringAlgorithm.optics);
+                const locationCentroids = await contentManager.estimateLocality(content.contentId);
 
                 // 6. Preprocess centroids to match scale differentials
                 let useLocality = true;

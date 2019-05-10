@@ -274,7 +274,7 @@ export function cli(master: Master): void {
         .option("-s, --sourceUrl <sourceUrl>", "Source URL (default image source if not supplied).")
         .action(async args => {
             let content = null;
-            let algorithm = null;
+            let algorithm: ClusteringAlgorithm | undefined = undefined;
             if (args.options.contentId != null) {
                 content = db.files().findOne({ contentId: args.options.contentId });
             } else if (args.options.sourceUrl != null) {
@@ -282,26 +282,25 @@ export function cli(master: Master): void {
             } else {
                 CliHelpers.log(`Unknown content ID or source URL supplied.`);
             }
+
+            if (content == null) {
+                CliHelpers.log(`Content not found.`);
+                return;
+            }
+
             if (args.options.algorithm) {
-                if (
-                    args.options.algorithm === ClusteringAlgorithm.dbscan ||
-                    args.options.algorithm === ClusteringAlgorithm.kmeans ||
-                    args.options.algorithm === ClusteringAlgorithm.optics
-                ) {
+                if (args.options.algorithm.include(ClusteringAlgorithm.dbscan, ClusteringAlgorithm.kmeans, ClusteringAlgorithm.optics)) {
                     algorithm = args.options.algorithm;
                 } else {
                     CliHelpers.log(`Unknown algorithm name supplied.`);
                 }
             }
-            if (content != null) {
-                let centroids: CentroidLocationData[] = [];
-                centroids = await contentManager.estimateLocality(content.contentId, algorithm);
-                logger.debug(`Content with id=${content.contentId} popular in ${centroids.length} location(s)`);
-                const c = 0;
-                recursiveCentroidPrinting(centroids, c);
-            } else {
-                CliHelpers.log(`Content not found.`);
-            }
+
+            let centroids: CentroidLocationData[] = [];
+            centroids = await contentManager.estimateLocality(content.contentId, algorithm);
+            logger.debug(`Content with id=${content.contentId} popular in ${centroids.length} location(s)`);
+            const c = 0;
+            recursiveCentroidPrinting(centroids, c);
         });
 
     vorpal.command("smart-caching", "Run smart caching algorithm based on scale and locality").action(async () => {
