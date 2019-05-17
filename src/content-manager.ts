@@ -153,6 +153,7 @@ export class ContentManager extends ContentManagerEmitter {
             popularityArray[fileIndex] = db.contentPopularity().contentScore(file.contentId);
             scaleActualArray[fileIndex] = db.nodesContent().count({ contentId: file.contentId });
             fileIndex++;
+            console.log(fileIndex);
         });
         // estimate target scale
         const maxPopularity = this.arrayMax(popularityArray);
@@ -161,7 +162,7 @@ export class ContentManager extends ContentManagerEmitter {
             const popToScaleFactor = maxScale / maxPopularity;
             maxStorageUsed = 0;
             for (let i = 0; i < nContent; i++) {
-                if (popularityArray[i] != null && popularityArray[i] != null && popularityArray[i] > 0) {
+                if (contentSizeArray[i] && popularityArray[i] != null && popularityArray[i] > 0) {
                     scaleTargetArray[i] = Math.max(Math.round(popToScaleFactor * popularityArray[i]), initialCopies);
                     maxStorageUsed += scaleTargetArray[i] * contentSizeArray[i];
                 } else {
@@ -187,6 +188,7 @@ export class ContentManager extends ContentManagerEmitter {
             file.scaleDiff = scaleDiffArray[fileIndex];
             db.files().update(file);
             fileIndex++;
+            console.log(fileIndex);
         });
     }
 
@@ -197,7 +199,10 @@ export class ContentManager extends ContentManagerEmitter {
         );
     }
 
-    public async estimateLocality(contentId: string, algorithm: ClusteringAlgorithm): Promise<CentroidLocationData[]> {
+    public async estimateLocality(
+        contentId: string,
+        algorithm: ClusteringAlgorithm = ClusteringAlgorithm.optics
+    ): Promise<CentroidLocationData[]> {
         const centroids: CentroidLocationData[] = [];
         const data: number[][] = [];
         const popularityData = db.contentPopularity().findOne({ contentId: contentId });
@@ -213,16 +218,20 @@ export class ContentManager extends ContentManagerEmitter {
                         data.push([location.latitude, location.longitude]);
                     }
                 });
-                if (algorithm == null || algorithm === "optics") {
-                    const optics = new clustering.OPTICS();
-                    res = optics.run(data, CLUSTER_EPS, CLUSTER_MIN_PTS, this.geoDistanceWrap);
-                } else if (algorithm === "dbscan") {
-                    const dbscan = new clustering.DBSCAN();
-                    res = dbscan.run(data, CLUSTER_EPS, CLUSTER_MIN_PTS, this.geoDistanceWrap);
-                } else if (algorithm === "kmeans") {
-                    const nClusters = uniqueCountryCodes.size;
-                    const kmeans = new clustering.KMEANS();
-                    res = kmeans.run(data, nClusters);
+                switch (algorithm) {
+                    case "optics":
+                        const optics = new clustering.OPTICS();
+                        res = optics.run(data, CLUSTER_EPS, CLUSTER_MIN_PTS, this.geoDistanceWrap);
+                        break;
+                    case "dbscan":
+                        const dbscan = new clustering.DBSCAN();
+                        res = dbscan.run(data, CLUSTER_EPS, CLUSTER_MIN_PTS, this.geoDistanceWrap);
+                        break;
+                    case "kmeans":
+                        const nClusters = uniqueCountryCodes.size;
+                        const kmeans = new clustering.KMEANS();
+                        res = kmeans.run(data, nClusters);
+                        break;
                 }
                 for (const clusterDataIds of res) {
                     const clusterData: geolib.PositionAsDecimal[] = [];
@@ -373,12 +382,13 @@ export class ContentManager extends ContentManagerEmitter {
             const contentId = Helpers.getContentIdentifier(filteredSource);
             let contentData: ContentData = db.files().findOne({ contentId: contentId }) as ContentData;
             if (contentData != null) {
-                fs.access(contentData.file, fs.constants.F_OK, existanceError => {
-                    if (!existanceError) {
-                        logger.caching(`Skipped downloading of content-src=${filteredSource} content-id=${contentId}.`);
-                        skipDownload = true;
-                    }
-                });
+                try {
+                    fs.accessSync(contentData.file, fs.constants.F_OK);
+                    logger.caching(`Skipped downloading of content-src=${filteredSource} content-id=${contentId}.`);
+                    skipDownload = true;
+                } catch (existanceError) {
+                    logger.verbose(existanceError);
+                }
             }
 
             try {
