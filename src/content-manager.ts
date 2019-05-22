@@ -364,9 +364,11 @@ export class ContentManager extends ContentManagerEmitter {
                 reject(new Error(msg));
                 return;
             }
-            logger.info(`Processing first download queue item of ${this.downloadQueue.length} total items.`);
 
             const source = this.downloadQueue.shift();
+
+            logger.info(`Processing first download queue item of ${this.downloadQueue.length} total itemsm src=${source}.`);
+
             if (source == null) {
                 logger.error("Internal download race condition.");
                 return;
