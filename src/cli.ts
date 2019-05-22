@@ -65,6 +65,18 @@ export function cli(master: Master): void {
         }
     });
 
+    vorpal.command("disconnect-node <nodeId>").action(async args => {
+        if (nodes._wires.hasOwnProperty(args.nodeId)) {
+            const wire = nodes._wires[args.nodeId];
+            CliHelpers.log(`Disconnecting node node-id=${wire.getRemoteMetadata().nodeId}...`);
+            wire.close(1002, "Master is in maintenance mode - please wait...");
+            dataCluster.disconnected({
+                nodeId: Helpers.getNodeUid(wire.getRemoteMetadata()),
+                timestamp: Date.now()
+            });
+        }
+    });
+
     vorpal.command("shutdown-master").action(async args => {
         CliHelpers.log("Master is entering maintenance mode...");
         nodes.maintenanceMode = true;
