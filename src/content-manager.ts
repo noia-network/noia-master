@@ -412,6 +412,7 @@ export class ContentManager extends ContentManagerEmitter {
                     reject(msg);
                 } else {
                     logger.error(`Error has occured while handling active downloads, skip-download=${skipDownload}:`, err);
+                    logger.error(err);
                     console.error(err);
                     if (fromNodeId == null) {
                         await this.internalDownload(nodeId, null);
