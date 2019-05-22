@@ -153,7 +153,6 @@ export class ContentManager extends ContentManagerEmitter {
             popularityArray[fileIndex] = db.contentPopularity().contentScore(file.contentId);
             scaleActualArray[fileIndex] = db.nodesContent().count({ contentId: file.contentId });
             fileIndex++;
-            console.log(fileIndex);
         });
         // estimate target scale
         const maxPopularity = this.arrayMax(popularityArray);
@@ -188,7 +187,6 @@ export class ContentManager extends ContentManagerEmitter {
             file.scaleDiff = scaleDiffArray[fileIndex];
             db.files().update(file);
             fileIndex++;
-            console.log(fileIndex);
         });
     }
 
@@ -409,11 +407,12 @@ export class ContentManager extends ContentManagerEmitter {
                 resolve();
             } catch (err) {
                 if (err.type === "max-size") {
-                    const msg = `Failed to download content-src=${filteredSource}, reason='${err.message}'.`;
+                    const msg = `Failed to download content-src=${filteredSource}, skip-download=${skipDownload}, reason='${err.message}'.`;
                     logger.warn(msg);
                     reject(msg);
                 } else {
-                    logger.error("Error has occured while handling active downloads:", err);
+                    logger.error(`Error has occured while handling active downloads, skip-download=${skipDownload}:`, err);
+                    console.error(err);
                     if (fromNodeId == null) {
                         await this.internalDownload(nodeId, null);
                     }
