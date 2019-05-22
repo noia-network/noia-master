@@ -172,6 +172,19 @@ export function cli(master: Master): void {
         CliHelpers.log(`Removed content-ids=${contents} from node node-id=${args.nodeId}.`);
     });
 
+    vorpal.command("remove-contents [contentsIds]", "Remove content from all online nodes.").action(async args => {
+        const contents: string[] = typeof args.contentsIds === "string" ? args.contentsIds.split(",") : [];
+
+        const foundNodes = db.nodes().find({ status: NodeStatus.online });
+        CliHelpers.log(`Removing contents from ${foundNodes.length} nodes.`);
+        if (foundNodes != null) {
+            for (const node of foundNodes) {
+                nodes.getWire(node.nodeId).clear(contents);
+                CliHelpers.log(`Removed content-ids=${contents} from node node-id=${node.nodeId}.`);
+            }
+        }
+    });
+
     vorpal
         .command("contents", "Show ready to deliver contents from online nodes.")
         .option("-n, --nodeId <nodeId>", "Node id.")
