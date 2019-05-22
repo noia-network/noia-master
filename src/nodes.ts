@@ -1009,7 +1009,7 @@ export class Nodes {
      */
     public getCandidates(clientRequestData: ClientRequest, clientLocation: LocationData): Candidate[] {
         const candidates: Candidate[] = [];
-        const nodesContentData = db.nodesContent().find({ contentId: Helpers.getContentIdentifier(clientRequestData.src) });
+        const nodesContentData = db.nodesContent().find({ contentId: Helpers.getContentIdentifier(clientRequestData.src), status: "done" });
         for (const nodeContentData of nodesContentData) {
             const node = db.nodes().findOne({
                 nodeId: nodeContentData.nodeId,
