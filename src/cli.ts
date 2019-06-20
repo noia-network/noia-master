@@ -180,8 +180,12 @@ export function cli(master: Master): void {
 
     vorpal.command("remove-content <nodeId> [contentsIds]", "Remove content from node.").action(async args => {
         const contents: string[] = typeof args.contentsIds === "string" ? args.contentsIds.split(",") : [];
-        nodes.getWire(args.nodeId).clear(contents);
-        CliHelpers.log(`Removed content-ids=${contents} from node node-id=${args.nodeId}.`);
+        if (nodes.getWire(args.nodeId)) {
+            nodes.getWire(args.nodeId).clear(contents);
+            CliHelpers.log(`Removed content-ids=${contents} from node node-id=${args.nodeId}.`);
+        } else {
+            CliHelpers.log("Bad nodeId!");
+        }
     });
 
     vorpal.command("remove-contents [contentsIds]", "Remove content from all online nodes.").action(async args => {
