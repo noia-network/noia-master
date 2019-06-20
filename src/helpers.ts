@@ -131,11 +131,11 @@ export namespace Helpers {
         },
 
         timeDiff: (timestampTo: number, timestampFrom: number): number => Math.floor(timestampTo - timestampFrom) || 0,
-        secondsToString: (miliseconds: number): string => {
-            const numdays = Math.floor(miliseconds / (24 * 60 * 60 * 1000));
-            const numhours = Math.floor((miliseconds / (1000 * 60 * 60)) % 24);
-            const numminutes = Math.floor((miliseconds / (1000 * 60)) % 60);
-            const numseconds = Math.floor((miliseconds / 1000) % 60);
+        secondsToString: (milliseconds: number): string => {
+            const numdays = Math.floor(milliseconds / (24 * 60 * 60 * 1000));
+            const numhours = Math.floor((milliseconds / (1000 * 60 * 60)) % 24);
+            const numminutes = Math.floor((milliseconds / (1000 * 60)) % 60);
+            const numseconds = Math.floor((milliseconds / 1000) % 60);
 
             let text = "";
             if (numdays > 0) {
