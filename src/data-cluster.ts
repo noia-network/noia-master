@@ -66,13 +66,14 @@ export interface StorageDto {
     mac: string;
     speed: number;
     distro: string;
-    interface: string;
-    ip4: string;
-    ip6: string;
-    interfacesLength: number;
-    ipv4: string;
-    ipv6: string;
+    ipv4?: string;
+    ipv6?: string;
     pingIpv6: boolean;
+    operstate?: string;
+    type?: string;
+    mtu?: number;
+    duplex?: string;
+    carrier_changes?: string;
 }
 
 export interface SystemDto {
@@ -97,8 +98,6 @@ export interface NetworkDto {
     timestamp: number;
     iface: string;
     ifaceName: string;
-    ip4: string;
-    ip6: string;
     mac: string;
     internal: boolean;
     virtual: boolean;
@@ -107,10 +106,10 @@ export interface NetworkDto {
     duplex: string;
     mtu: number;
     speed: number;
-    interfacesLength: number;
-    ipv4: string;
-    ipv6: string;
+    ipv4?: string;
+    ipv6?: string;
     pingIpv6: boolean;
+    carrier_changes: string;
 }
 
 export interface MetadataDto {

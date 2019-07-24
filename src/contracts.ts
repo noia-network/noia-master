@@ -5,13 +5,10 @@ import {
     ClientMetadata,
     MasterBlockchainMetadata,
     NodeBlockchainMetadata,
-    ExternalIpv4,
-    ExternalIpv6,
     NetworkInterfaces
 } from "@noia-network/protocol/dist/contracts";
 import * as WebSocket from "ws";
 import { UptimeRequestDto, UptimeResponse } from "./data-cluster";
-import { Systeminformation } from "systeminformation";
 
 export interface LocationData {
     latitude: number;
@@ -65,7 +62,7 @@ export interface NodeConnectionType {
 
 export type ClientConnectionsTypes = "ws" | "wss" | "webrtc";
 
-export interface Node extends Systeminformation.OsData, NetworkInterfaces, ExternalIpv4, ExternalIpv6 {
+export interface Node {
     nodeId: string;
     location: LocationData;
     connectedAt: number;
@@ -76,7 +73,7 @@ export interface Node extends Systeminformation.OsData, NetworkInterfaces, Exter
         [TKey in ClientConnectionsTypes]: {
             checkStatus: "failed" | "succeeded" | "not-checked";
             port: number | null;
-        }
+        };
     };
     disconnectedAt?: number;
     domain?: string;
@@ -94,6 +91,20 @@ export interface Node extends Systeminformation.OsData, NetworkInterfaces, Exter
         platform: string;
         release: string;
         pingIpv6: boolean;
+        distro: string;
+        ipv4: string;
+        ipv6: string;
+        mac: string;
+        iface: string;
+        speed: number;
+        ifaceName: string;
+        virtual: boolean;
+        internal: boolean;
+        operstate: string;
+        type: string;
+        mtu: number;
+        duplex: string;
+        carrier_changes: string;
     };
     tokens?: number;
     uploaded?: number;

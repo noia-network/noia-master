@@ -18,9 +18,7 @@ import {
     BandwidthData,
     ClientRequest,
     Peer,
-    NetworkInterfaces,
-    ExternalIpv4,
-    ExternalIpv6
+    NetworkInterfaces
 } from "@noia-network/protocol";
 
 import { Helpers } from "./helpers";
@@ -38,7 +36,6 @@ import { encryption } from "./encryption";
 import { internalNodesMetadata } from "./internal-nodes-metadata";
 import { logger } from "./logger";
 import { scheduler } from "./scheduler";
-import { Systeminformation } from "@noia-network/protocol/node_modules/systeminformation";
 
 export interface NodeContentData {
     contentId: string;
@@ -431,15 +428,6 @@ export class Nodes {
         wire.on("bandwidthData", info => {
             this.onBandwidthData(wire, info);
         });
-        wire.on("systemData", info => {
-            this.onSystemData(wire, info);
-        });
-        wire.on("externalIpv4", info => {
-            this.onExternalIpv4(wire, info);
-        });
-        wire.on("externalIpv6", info => {
-            this.onExternalIpv6(wire, info);
-        });
         wire.on("networkData", info => {
             this.onNetworkData(wire, info);
         });
@@ -563,7 +551,21 @@ export class Nodes {
                     arch: "",
                     platform: "",
                     release: "",
-                    pingIpv6: false
+                    pingIpv6: false,
+                    distro: "",
+                    ipv4: "",
+                    ipv6: "",
+                    mac: "",
+                    iface: "",
+                    speed: 0,
+                    ifaceName: "",
+                    internal: false,
+                    virtual: false,
+                    operstate: "",
+                    type: "",
+                    mtu: 0,
+                    duplex: "",
+                    carrier_changes: ""
                 },
                 connections: {
                     webrtc: {
@@ -606,35 +608,7 @@ export class Nodes {
                 loadUpload: 0,
                 bandwidthDownload: 0,
                 bandwidthUpload: 0,
-                healthScore: 0,
-                platform: "",
-                distro: "",
-                release: "",
-                codename: "",
-                kernel: "",
-                arch: "",
-                hostname: "",
-                codepage: "",
-                logofile: "",
-                serial: "",
-                build: "",
-                servicepack: "",
-                iface: "",
-                ifaceName: "",
-                ip4: "",
-                ip6: "",
-                mac: "",
-                internal: false,
-                virtual: false,
-                operstate: "",
-                type: "",
-                duplex: "",
-                mtu: 0,
-                speed: 0,
-                carrier_changes: 0,
-                ipv4: "",
-                ipv6: "",
-                interfacesLength: 0
+                healthScore: 0
             };
         }
 
@@ -686,39 +660,25 @@ export class Nodes {
                 arch: "",
                 platform: "",
                 release: "",
-                pingIpv6: false
+                pingIpv6: false,
+                distro: "",
+                ipv4: "",
+                ipv6: "",
+                mac: "",
+                iface: "",
+                speed: 0,
+                ifaceName: "",
+                internal: false,
+                virtual: false,
+                operstate: "",
+                type: "",
+                duplex: "",
+                mtu: 0,
+                carrier_changes: ""
             };
             node.latency = 0;
             node.bandwidthUpload = 0;
             node.bandwidthDownload = 0;
-            node.platform = "";
-            node.distro = "";
-            node.release = "";
-            node.codename = "";
-            node.kernel = "";
-            node.arch = "";
-            node.hostname = "";
-            node.codepage = "";
-            node.logofile = "";
-            node.serial = "";
-            node.build = "";
-            node.servicepack = "";
-            node.iface = "";
-            node.ifaceName = "";
-            node.ip4 = "";
-            node.ip6 = "";
-            node.mac = "";
-            node.internal = false;
-            node.virtual = false;
-            node.operstate = "";
-            node.type = "";
-            node.duplex = "";
-            node.mtu = 0;
-            node.speed = 0;
-            node.carrier_changes = 0;
-            node.ipv4 = "";
-            node.ipv6 = "";
-            node.interfacesLength = 0;
 
             db.nodes().insert(node);
         }
@@ -739,30 +699,35 @@ export class Nodes {
         return node;
     }
 
-    private onSystemData(wire: ExtendedWireTypes, systemDataEvent: ProtocolEvent<Systeminformation.OsData>): void {
-        if (!wire.getRemoteMetadata().nodeId) {
-            logger.error(`Node node-id=${wire.getRemoteMetadata().nodeId} is invalid.`);
-            return;
-        }
-
+    private onNetworkData(wire: ExtendedWireTypes, networkDataEvent: ProtocolEvent<NetworkInterfaces>): void {
         const node = db.nodes().findOne({ nodeId: wire.getRemoteMetadata().nodeId });
         if (!node) {
             logger.error(`Node node-id=${wire.getRemoteMetadata().nodeId} is not found in database.`);
             return;
         }
 
-        node.distro = systemDataEvent.data.distro == null ? "" : String(systemDataEvent.data.distro);
-        node.arch = systemDataEvent.data.arch == null ? "" : String(systemDataEvent.data.arch);
-        node.platform = systemDataEvent.data.platform == null ? "" : String(systemDataEvent.data.platform);
-        node.release = systemDataEvent.data.release == null ? "" : String(systemDataEvent.data.release);
+        if (networkDataEvent.data == null) {
+            logger.error(wire.getRemoteMetadata().nodeId + " : metadata : no storage metadata");
+            return;
+        }
 
-        dataCluster.system({
+        dataCluster.network({
             nodeId: Helpers.getNodeUid(node),
             timestamp: Date.now(),
-            arch: node.arch,
-            platform: node.platform,
-            release: node.release,
-            distro: node.distro
+            iface: node.storage.iface,
+            ifaceName: node.storage.ifaceName,
+            mac: node.storage.mac,
+            internal: node.storage.internal,
+            virtual: node.storage.virtual,
+            operstate: node.storage.operstate,
+            type: node.storage.type,
+            duplex: node.storage.duplex,
+            mtu: node.storage.mtu,
+            speed: node.storage.speed,
+            ipv4: node.storage.ipv4,
+            ipv6: node.storage.ipv6,
+            pingIpv6: node.storage.pingIpv6,
+            carrier_changes: node.storage.carrier_changes
         });
 
         db.nodes().update(node);
@@ -798,7 +763,21 @@ export class Nodes {
             arch: storageDataEvent.data.arch == null ? "" : String(storageDataEvent.data.arch),
             platform: storageDataEvent.data.platform == null ? "" : String(storageDataEvent.data.platform),
             release: storageDataEvent.data.release == null ? "" : String(storageDataEvent.data.release),
-            pingIpv6: storageDataEvent.data.pingIpv6.toString() === "true" || storageDataEvent.data.pingIpv6.toString() !== "false"
+            pingIpv6: storageDataEvent.data.pingIpv6.toString() === "true" || storageDataEvent.data.pingIpv6.toString() !== "false",
+            distro: storageDataEvent.data.distro == null ? "" : String(storageDataEvent.data.distro),
+            ipv4: storageDataEvent.data.ipv4 == null ? "" : String(storageDataEvent.data.ipv4),
+            ipv6: storageDataEvent.data.ipv6 == null ? "" : String(storageDataEvent.data.ipv6),
+            mac: storageDataEvent.data.mac == null ? "" : String(storageDataEvent.data.mac),
+            iface: storageDataEvent.data.iface == null ? "" : String(storageDataEvent.data.iface),
+            speed: parseInt(storageDataEvent.data.speed!.toString()) ? parseInt(storageDataEvent.data.speed!.toString()) : -1,
+            ifaceName: storageDataEvent.data.ifaceName == null ? "" : String(storageDataEvent.data.ifaceName),
+            internal: storageDataEvent.data.internal!.toString() === "true" || storageDataEvent.data.internal!.toString() !== "false",
+            virtual: storageDataEvent.data.virtual!.toString() === "true" || storageDataEvent.data.virtual!.toString() !== "false",
+            operstate: storageDataEvent.data.operstate == null ? "" : String(storageDataEvent.data.operstate),
+            type: storageDataEvent.data.type == null ? "" : String(storageDataEvent.data.type),
+            mtu: parseInt(storageDataEvent.data.mtu!.toString()) ? parseInt(storageDataEvent.data.mtu!.toString()) : -1,
+            duplex: storageDataEvent.data.duplex == null ? "" : String(storageDataEvent.data.duplex),
+            carrier_changes: storageDataEvent.data.carrier_changes == null ? "" : String(storageDataEvent.data.carrier_changes)
         };
 
         const healthScoreData: Partial<ScoreWeights> = {};
@@ -819,111 +798,13 @@ export class Nodes {
             deviceType: node.storage.deviceType,
             platform: node.storage.platform,
             release: node.storage.release,
-            distro: node.distro,
-            iface: node.iface,
-            mac: node.mac,
-            speed: node.speed,
+            distro: node.storage.distro,
+            iface: node.storage.iface,
+            mac: node.storage.mac,
+            speed: node.storage.speed,
             settingsVersion: node.storage.settingsVersion,
-            interface: wire.getRemoteMetadata().interface,
-            ip4: node.ip4,
-            ip6: node.ip6,
-            interfacesLength: node.interfacesLength,
-            ipv4: node.ipv4,
-            ipv6: node.ipv6,
-            pingIpv6: node.storage.pingIpv6
-        });
-
-        db.nodes().update(node);
-    }
-
-    private onExternalIpv4(wire: ExtendedWireTypes, externalIpEvent: ProtocolEvent<ExternalIpv4>): void {
-        if (!wire.getRemoteMetadata().nodeId) {
-            logger.error(`Node node-id=${wire.getRemoteMetadata().nodeId} is invalid.`);
-            return;
-        }
-
-        const node = db.nodes().findOne({ nodeId: wire.getRemoteMetadata().nodeId });
-        if (!node) {
-            logger.error(`Node node-id=${wire.getRemoteMetadata().nodeId} is not found in database.`);
-            return;
-        }
-
-        node.ipv4 = externalIpEvent.data.ipv4 == null ? "" : String(externalIpEvent.data.ipv4);
-
-        dataCluster.externalIpv4({
-            ipv4: node.ipv4
-        });
-
-        db.nodes().update(node);
-    }
-
-    private onExternalIpv6(wire: ExtendedWireTypes, externalIpEvent: ProtocolEvent<ExternalIpv6>): void {
-        if (!wire.getRemoteMetadata().nodeId) {
-            logger.error(`Node node-id=${wire.getRemoteMetadata().nodeId} is invalid.`);
-            return;
-        }
-
-        const node = db.nodes().findOne({ nodeId: wire.getRemoteMetadata().nodeId });
-        if (!node) {
-            logger.error(`Node node-id=${wire.getRemoteMetadata().nodeId} is not found in database.`);
-            return;
-        }
-
-        node.ipv6 = externalIpEvent.data.ipv6 == null ? "" : String(externalIpEvent.data.ipv6);
-
-        dataCluster.externalIpv6({
-            ipv6: node.ipv6
-        });
-
-        db.nodes().update(node);
-    }
-
-    private onNetworkData(wire: ExtendedWireTypes, networkDataEvent: ProtocolEvent<NetworkInterfaces>): void {
-        const node = db.nodes().findOne({ nodeId: wire.getRemoteMetadata().nodeId });
-        if (!node) {
-            logger.error(`Node node-id=${wire.getRemoteMetadata().nodeId} is not found in database.`);
-            return;
-        }
-
-        if (networkDataEvent.data == null) {
-            logger.error(wire.getRemoteMetadata().nodeId + " : metadata : no storage metadata");
-            return;
-        }
-
-        node.iface = networkDataEvent.data.iface == null ? "" : String(networkDataEvent.data.iface);
-        node.ifaceName = networkDataEvent.data.ifaceName == null ? "" : String(networkDataEvent.data.ifaceName);
-        node.ip4 = networkDataEvent.data.ip4 == null ? "" : String(networkDataEvent.data.ip4);
-        node.ip6 = networkDataEvent.data.ip6 == null ? "" : String(networkDataEvent.data.ip6);
-        node.mac = networkDataEvent.data.mac == null ? "" : String(networkDataEvent.data.mac);
-        node.internal = networkDataEvent.data.internal.toString() === "true" || networkDataEvent.data.internal.toString() !== "false";
-        node.virtual = networkDataEvent.data.virtual.toString() === "true" || networkDataEvent.data.virtual.toString() !== "false";
-        node.operstate = networkDataEvent.data.operstate == null ? "" : String(networkDataEvent.data.operstate);
-        node.type = networkDataEvent.data.type == null ? "" : String(networkDataEvent.data.type);
-        node.duplex = networkDataEvent.data.duplex == null ? "" : String(networkDataEvent.data.duplex);
-        node.mtu = parseInt(networkDataEvent.data.mtu.toString()) ? parseInt(networkDataEvent.data.mtu.toString()) : -1;
-        node.speed = parseInt(networkDataEvent.data.speed.toString()) ? parseInt(networkDataEvent.data.speed.toString()) : -1;
-        node.interfacesLength = parseInt(networkDataEvent.data.interfacesLength.toString())
-            ? parseInt(networkDataEvent.data.interfacesLength.toString())
-            : -1;
-
-        dataCluster.network({
-            nodeId: Helpers.getNodeUid(node),
-            timestamp: Date.now(),
-            iface: node.iface,
-            ifaceName: node.ifaceName,
-            ip4: node.ip4,
-            ip6: node.ip6,
-            mac: node.mac,
-            internal: node.internal,
-            virtual: node.virtual,
-            operstate: node.operstate,
-            type: node.type,
-            duplex: node.duplex,
-            mtu: node.mtu,
-            speed: node.speed,
-            interfacesLength: node.interfacesLength,
-            ipv4: node.ipv4,
-            ipv6: node.ipv6,
+            ipv4: node.storage.ipv4,
+            ipv6: node.storage.ipv6,
             pingIpv6: node.storage.pingIpv6
         });
 
