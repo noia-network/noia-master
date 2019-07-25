@@ -565,7 +565,7 @@ export class Nodes {
                     type: "",
                     mtu: 0,
                     duplex: "",
-                    carrier_changes: ""
+                    interfacesLength: 0
                 },
                 connections: {
                     webrtc: {
@@ -608,7 +608,19 @@ export class Nodes {
                 loadUpload: 0,
                 bandwidthDownload: 0,
                 bandwidthUpload: 0,
-                healthScore: 0
+                healthScore: 0,
+                network: {
+                    mac: "",
+                    iface: "",
+                    speed: 0,
+                    ifaceName: "",
+                    virtual: false,
+                    internal: false,
+                    operstate: "",
+                    type: "",
+                    mtu: 0,
+                    duplex: ""
+                }
             };
         }
 
@@ -674,11 +686,23 @@ export class Nodes {
                 type: "",
                 duplex: "",
                 mtu: 0,
-                carrier_changes: ""
+                interfacesLength: 0
             };
             node.latency = 0;
             node.bandwidthUpload = 0;
             node.bandwidthDownload = 0;
+            node.network = {
+                mac: "",
+                iface: "",
+                speed: 0,
+                ifaceName: "",
+                virtual: false,
+                internal: false,
+                operstate: "",
+                type: "",
+                mtu: 0,
+                duplex: ""
+            };
 
             db.nodes().insert(node);
         }
@@ -711,23 +735,36 @@ export class Nodes {
             return;
         }
 
+        node.network = {
+            mac: networkDataEvent.data.mac == null ? "" : String(networkDataEvent.data.mac),
+            iface: networkDataEvent.data.iface == null ? "" : String(networkDataEvent.data.iface),
+            speed: parseInt(networkDataEvent.data.speed!.toString()) ? parseInt(networkDataEvent.data.speed!.toString()) : -1,
+            ifaceName: networkDataEvent.data.ifaceName == null ? "" : String(networkDataEvent.data.ifaceName),
+            internal: !!networkDataEvent.data.internal,
+            virtual: !!networkDataEvent.data.virtual,
+            operstate: networkDataEvent.data.operstate == null ? "" : String(networkDataEvent.data.operstate),
+            type: networkDataEvent.data.type == null ? "" : String(networkDataEvent.data.type),
+            mtu: parseInt(networkDataEvent.data.mtu.toString()) ? parseInt(networkDataEvent.data.mtu.toString()) : -1,
+            duplex: networkDataEvent.data.duplex == null ? "" : String(networkDataEvent.data.duplex)
+        };
+
         dataCluster.network({
             nodeId: Helpers.getNodeUid(node),
             timestamp: Date.now(),
-            iface: node.storage.iface,
-            ifaceName: node.storage.ifaceName,
-            mac: node.storage.mac,
-            internal: node.storage.internal,
-            virtual: node.storage.virtual,
-            operstate: node.storage.operstate,
-            type: node.storage.type,
-            duplex: node.storage.duplex,
-            mtu: node.storage.mtu,
-            speed: node.storage.speed,
+            iface: node.network.iface,
+            ifaceName: node.network.ifaceName,
+            mac: node.network.mac,
+            internal: node.network.internal,
+            virtual: node.network.virtual,
+            operstate: node.network.operstate,
+            type: node.network.type,
+            duplex: node.network.duplex,
+            mtu: node.network.mtu,
+            speed: node.network.speed,
             ipv4: node.storage.ipv4,
             ipv6: node.storage.ipv6,
             pingIpv6: node.storage.pingIpv6,
-            carrier_changes: node.storage.carrier_changes
+            interfacesLength: node.storage.interfacesLength
         });
 
         db.nodes().update(node);
@@ -763,7 +800,7 @@ export class Nodes {
             arch: storageDataEvent.data.arch == null ? "" : String(storageDataEvent.data.arch),
             platform: storageDataEvent.data.platform == null ? "" : String(storageDataEvent.data.platform),
             release: storageDataEvent.data.release == null ? "" : String(storageDataEvent.data.release),
-            pingIpv6: storageDataEvent.data.pingIpv6.toString() === "true" || storageDataEvent.data.pingIpv6.toString() !== "false",
+            pingIpv6: !!storageDataEvent.data.pingIpv6,
             distro: storageDataEvent.data.distro == null ? "" : String(storageDataEvent.data.distro),
             ipv4: storageDataEvent.data.ipv4 == null ? "" : String(storageDataEvent.data.ipv4),
             ipv6: storageDataEvent.data.ipv6 == null ? "" : String(storageDataEvent.data.ipv6),
@@ -771,13 +808,15 @@ export class Nodes {
             iface: storageDataEvent.data.iface == null ? "" : String(storageDataEvent.data.iface),
             speed: parseInt(storageDataEvent.data.speed!.toString()) ? parseInt(storageDataEvent.data.speed!.toString()) : -1,
             ifaceName: storageDataEvent.data.ifaceName == null ? "" : String(storageDataEvent.data.ifaceName),
-            internal: storageDataEvent.data.internal!.toString() === "true" || storageDataEvent.data.internal!.toString() !== "false",
-            virtual: storageDataEvent.data.virtual!.toString() === "true" || storageDataEvent.data.virtual!.toString() !== "false",
+            internal: !!storageDataEvent.data.internal,
+            virtual: !!storageDataEvent.data.virtual,
             operstate: storageDataEvent.data.operstate == null ? "" : String(storageDataEvent.data.operstate),
             type: storageDataEvent.data.type == null ? "" : String(storageDataEvent.data.type),
             mtu: parseInt(storageDataEvent.data.mtu!.toString()) ? parseInt(storageDataEvent.data.mtu!.toString()) : -1,
             duplex: storageDataEvent.data.duplex == null ? "" : String(storageDataEvent.data.duplex),
-            carrier_changes: storageDataEvent.data.carrier_changes == null ? "" : String(storageDataEvent.data.carrier_changes)
+            interfacesLength: parseInt(storageDataEvent.data.interfacesLength.toString())
+                ? parseInt(storageDataEvent.data.interfacesLength.toString())
+                : -1
         };
 
         const healthScoreData: Partial<ScoreWeights> = {};
@@ -805,7 +844,8 @@ export class Nodes {
             settingsVersion: node.storage.settingsVersion,
             ipv4: node.storage.ipv4,
             ipv6: node.storage.ipv6,
-            pingIpv6: node.storage.pingIpv6
+            pingIpv6: node.storage.pingIpv6,
+            interfacesLength: node.storage.interfacesLength
         });
 
         db.nodes().update(node);

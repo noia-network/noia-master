@@ -104,7 +104,7 @@ export interface Node {
         type: string;
         mtu: number;
         duplex: string;
-        carrier_changes: string;
+        interfacesLength: number;
     };
     tokens?: number;
     uploaded?: number;
@@ -122,6 +122,18 @@ export interface Node {
     distance?: number;
     latency?: number;
     lastWorkOrder: string | null;
+    network: {
+        mac: string;
+        iface: string;
+        speed: number;
+        ifaceName: string;
+        virtual: boolean;
+        internal: boolean;
+        operstate: string;
+        type: string;
+        mtu: number;
+        duplex: string;
+    };
 }
 
 export interface Candidate {

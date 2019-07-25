@@ -73,7 +73,7 @@ export interface StorageDto {
     type?: string;
     mtu?: number;
     duplex?: string;
-    carrier_changes?: string;
+    interfacesLength?: number;
 }
 
 export interface SystemDto {
@@ -109,7 +109,7 @@ export interface NetworkDto {
     ipv4?: string;
     ipv6?: string;
     pingIpv6: boolean;
-    carrier_changes: string;
+    interfacesLength: number;
 }
 
 export interface MetadataDto {
