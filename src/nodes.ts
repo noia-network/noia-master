@@ -18,7 +18,6 @@ import {
     BandwidthData,
     ClientRequest,
     Peer,
-    NetworkInterfaces,
     NodeInfoData
 } from "@noia-network/protocol";
 
@@ -37,7 +36,6 @@ import { encryption } from "./encryption";
 import { internalNodesMetadata } from "./internal-nodes-metadata";
 import { logger } from "./logger";
 import { scheduler } from "./scheduler";
-import { strict } from "assert";
 
 export interface NodeContentData {
     contentId: string;
@@ -700,28 +698,32 @@ export class Nodes {
             return;
         }
 
-        node.system = {
-            distro: systemDataEvent.data.distro == null ? "" : String(systemDataEvent.data.distro),
-            arch: systemDataEvent.data.arch == null ? "" : String(systemDataEvent.data.arch),
-            release: systemDataEvent.data.release == null ? "" : String(systemDataEvent.data.release),
-            platform: systemDataEvent.data.platform == null ? "" : String(systemDataEvent.data.platform),
-            settingsVersion: systemDataEvent.data.settingsVersion == null ? "" : String(systemDataEvent.data.settingsVersion),
-            deviceType: systemDataEvent.data.deviceType == null ? "" : String(systemDataEvent.data.deviceType),
-            iface: systemDataEvent.data.iface == null ? "" : String(systemDataEvent.data.iface),
-            ifaceName: systemDataEvent.data.ifaceName == null ? "" : String(systemDataEvent.data.ifaceName),
-            mac: systemDataEvent.data.mac == null ? "" : String(systemDataEvent.data.mac),
-            internal: !!systemDataEvent.data.internal,
-            virtual: !!systemDataEvent.data.virtual,
-            operstate: systemDataEvent.data.operstate == null ? "" : String(systemDataEvent.data.operstate),
-            type: systemDataEvent.data.type == null ? "" : String(systemDataEvent.data.type),
-            duplex: systemDataEvent.data.duplex == null ? "" : String(systemDataEvent.data.duplex),
-            mtu: systemDataEvent.data.mtu ? parseInt(systemDataEvent.data.mtu.toString()) : 0,
-            speed: systemDataEvent.data.speed ? parseInt(systemDataEvent.data.speed.toString()) : 0,
-            ipv4: systemDataEvent.data.ipv4 == null ? "" : String(systemDataEvent.data.ipv4),
-            ipv6: systemDataEvent.data.ipv6 == null ? "" : String(systemDataEvent.data.ipv6),
-            pingIpv6: !!systemDataEvent.data.pingIpv6,
-            interfacesLength: systemDataEvent.data.interfacesLength ? parseInt(systemDataEvent.data.interfacesLength.toString()) : 0
-        };
+        try {
+            node.system = {
+                distro: systemDataEvent.data.distro == null ? "" : String(systemDataEvent.data.distro),
+                arch: systemDataEvent.data.arch == null ? "" : String(systemDataEvent.data.arch),
+                release: systemDataEvent.data.release == null ? "" : String(systemDataEvent.data.release),
+                platform: systemDataEvent.data.platform == null ? "" : String(systemDataEvent.data.platform),
+                settingsVersion: systemDataEvent.data.settingsVersion == null ? "" : String(systemDataEvent.data.settingsVersion),
+                deviceType: systemDataEvent.data.deviceType == null ? "" : String(systemDataEvent.data.deviceType),
+                iface: systemDataEvent.data.iface == null ? "" : String(systemDataEvent.data.iface),
+                ifaceName: systemDataEvent.data.ifaceName == null ? "" : String(systemDataEvent.data.ifaceName),
+                mac: systemDataEvent.data.mac == null ? "" : String(systemDataEvent.data.mac),
+                internal: !!systemDataEvent.data.internal,
+                virtual: !!systemDataEvent.data.virtual,
+                operstate: systemDataEvent.data.operstate == null ? "" : String(systemDataEvent.data.operstate),
+                type: systemDataEvent.data.type == null ? "" : String(systemDataEvent.data.type),
+                duplex: systemDataEvent.data.duplex == null ? "" : String(systemDataEvent.data.duplex),
+                mtu: systemDataEvent.data.mtu ? parseInt(systemDataEvent.data.mtu.toString()) : 0,
+                speed: systemDataEvent.data.speed ? parseInt(systemDataEvent.data.speed.toString()) : 0,
+                ipv4: systemDataEvent.data.ipv4 == null ? "" : String(systemDataEvent.data.ipv4),
+                ipv6: systemDataEvent.data.ipv6 == null ? "" : String(systemDataEvent.data.ipv6),
+                pingIpv6: !!systemDataEvent.data.pingIpv6,
+                interfacesLength: systemDataEvent.data.interfacesLength ? parseInt(systemDataEvent.data.interfacesLength.toString()) : 0
+            };
+        } catch (error) {
+            logger.error(error);
+        }
 
         dataCluster.system({
             nodeId: Helpers.getNodeUid(node),

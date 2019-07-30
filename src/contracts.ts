@@ -4,9 +4,7 @@ import {
     MasterMetadata,
     ClientMetadata,
     MasterBlockchainMetadata,
-    NodeBlockchainMetadata,
-    NetworkInterfaces,
-    NodeInfoData
+    NodeBlockchainMetadata
 } from "@noia-network/protocol/dist/contracts";
 import * as WebSocket from "ws";
 import { UptimeRequestDto, UptimeResponse } from "./data-cluster";

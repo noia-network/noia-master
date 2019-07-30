@@ -89,31 +89,6 @@ export interface ExternalIpv6Dto {
     ipv6: string;
 }
 
-export interface NetworkDto {
-    distro?: string;
-    // deviceType?: string;
-    // settingsVersion?: string;
-    // arch?: string;
-    // platform?: string;
-    // release?: string;
-    // nodeId: string;
-    // timestamp: number;
-    // iface?: string;
-    // ifaceName?: string;
-    // mac?: string;
-    // internal?: boolean;
-    // virtual?: boolean;
-    // operstate?: string;
-    // type?: string;
-    // duplex?: string;
-    // mtu?: number;
-    // speed?: number;
-    // ipv4?: string;
-    // ipv6?: string;
-    // pingIpv6?: boolean;
-    // interfacesLength?: number;
-}
-
 export interface MetadataDto {
     nodeId: string;
     timestamp: number;
