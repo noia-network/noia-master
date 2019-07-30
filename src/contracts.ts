@@ -5,7 +5,8 @@ import {
     ClientMetadata,
     MasterBlockchainMetadata,
     NodeBlockchainMetadata,
-    NetworkInterfaces
+    NetworkInterfaces,
+    NodeInfoData
 } from "@noia-network/protocol/dist/contracts";
 import * as WebSocket from "ws";
 import { UptimeRequestDto, UptimeResponse } from "./data-cluster";
@@ -85,26 +86,6 @@ export interface Node {
         used: number;
         available: number;
         total: number;
-        deviceType: string;
-        settingsVersion: string;
-        arch: string;
-        platform: string;
-        release: string;
-        pingIpv6: boolean;
-        distro: string;
-        ipv4: string;
-        ipv6: string;
-        mac: string;
-        iface: string;
-        speed: number;
-        ifaceName: string;
-        virtual: boolean;
-        internal: boolean;
-        operstate: string;
-        type: string;
-        mtu: number;
-        duplex: string;
-        interfacesLength: number;
     };
     tokens?: number;
     uploaded?: number;
@@ -122,17 +103,27 @@ export interface Node {
     distance?: number;
     latency?: number;
     lastWorkOrder: string | null;
-    network: {
-        mac: string;
-        iface: string;
-        speed: number;
+    system: {
+        distro?: string;
+        deviceType?: string;
+        settingsVersion?: string;
+        arch?: string;
+        platform?: string;
+        release?: string;
         ifaceName: string;
-        virtual: boolean;
-        internal: boolean;
-        operstate: string;
-        type: string;
-        mtu: number;
-        duplex: string;
+        ipv4?: string;
+        ipv6?: string;
+        iface: string;
+        mac?: string;
+        internal?: boolean;
+        virtual?: boolean;
+        operstate?: string;
+        type?: string;
+        duplex?: string;
+        mtu?: number;
+        speed?: number;
+        pingIpv6?: boolean;
+        interfacesLength: number;
     };
 }
 

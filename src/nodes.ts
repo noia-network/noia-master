@@ -18,13 +18,14 @@ import {
     BandwidthData,
     ClientRequest,
     Peer,
-    NetworkInterfaces
+    NetworkInterfaces,
+    NodeInfoData
 } from "@noia-network/protocol";
 
 import { Helpers } from "./helpers";
 import { Node, NodeStatus, ExtendedWire, ExtendedWireTypes, LocationData, Candidate, ClientConnectionsTypes } from "./contracts";
 import { api, ApiEventType } from "./api";
-import { blockchain } from "./blockchain";
+// import { blockchain } from "./blockchain";
 import { cache, ScoreWeights, MetricName } from "./cache";
 import { cloudflare } from "./cloudflare";
 import { config, ConfigOption } from "./config";
@@ -36,6 +37,7 @@ import { encryption } from "./encryption";
 import { internalNodesMetadata } from "./internal-nodes-metadata";
 import { logger } from "./logger";
 import { scheduler } from "./scheduler";
+import { strict } from "assert";
 
 export interface NodeContentData {
     contentId: string;
@@ -99,50 +101,50 @@ export class Nodes {
         };
 
         let wire: ExtendedWireTypes;
-        if (!config.get(ConfigOption.BlockchainIsEnabled)) {
-            // Not using blockchain.
-            wire = new ExtendedWire<MasterMetadata, NodeMetadata>(ws, masterMetadata, async remoteMetadata => {
-                wire.isInternalNode = internalNodesMetadata.get(nodeExternalIp) != null;
-                if (typeof remoteMetadata.nodeId !== "string" || remoteMetadata.nodeId.length < 1) {
-                    logger.warn("Invalid node id.");
-                    return false;
-                }
-                this._wires[remoteMetadata.nodeId] = wire;
-                return true;
-            });
-        } else {
-            // Using blockchain.
-            const msg = Helpers.randomString(16);
-            const signedMsg = await blockchain.signMessage(msg);
-            const blockchainMasterMetadata: MasterBlockchainMetadata = Object.assign(masterMetadata, {
-                msg: msg,
-                msgSigned: signedMsg
-            });
-            wire = new ExtendedWire<MasterBlockchainMetadata, NodeBlockchainMetadata>(
-                ws,
-                blockchainMasterMetadata,
-                async remoteMetadata => {
-                    wire.isInternalNode = internalNodesMetadata.get(nodeExternalIp) != null;
-                    if (typeof remoteMetadata.nodeId !== "string" || remoteMetadata.nodeId.length < 1) {
-                        logger.warn("Invalid node id.");
-                        return false;
-                    }
-                    this._wires[remoteMetadata.nodeId] = wire;
-                    try {
-                        const isCheckPassed =
-                            remoteMetadata.walletAddress ===
-                            blockchain.recoverAddressFromSignedMessage(remoteMetadata.msg, remoteMetadata.msgSigned);
-                        if (!isCheckPassed) {
-                            logger.error(`Node node-id=${remoteMetadata.nodeId} signature failed to pass.`);
-                        }
-                        return isCheckPassed;
-                    } catch (err) {
-                        logger.error(err);
-                        return false;
-                    }
-                }
-            );
-        }
+        // if (!config.get(ConfigOption.BlockchainIsEnabled)) {
+        // Not using blockchain.
+        wire = new ExtendedWire<MasterMetadata, NodeMetadata>(ws, masterMetadata, async remoteMetadata => {
+            wire.isInternalNode = internalNodesMetadata.get(nodeExternalIp) != null;
+            if (typeof remoteMetadata.nodeId !== "string" || remoteMetadata.nodeId.length < 1) {
+                logger.warn("Invalid node id.");
+                return false;
+            }
+            this._wires[remoteMetadata.nodeId] = wire;
+            return true;
+        });
+        // } else {
+        //     // Using blockchain.
+        //     const msg = Helpers.randomString(16);
+        //     const signedMsg = "";
+        //     // const signedMsg = await blockchain.signMessage(msg);
+        //     const blockchainMasterMetadata: MasterBlockchainMetadata = Object.assign(masterMetadata, {
+        //         msg: msg,
+        //         msgSigned: signedMsg
+        //     });
+        //     wire = new ExtendedWire<MasterBlockchainMetadata, NodeBlockchainMetadata>(
+        //         ws,
+        //         blockchainMasterMetadata,
+        //         async remoteMetadata => {
+        //             wire.isInternalNode = internalNodesMetadata.get(nodeExternalIp) != null;
+        //             if (typeof remoteMetadata.nodeId !== "string" || remoteMetadata.nodeId.length < 1) {
+        //                 logger.warn("Invalid node id.");
+        //                 return false;
+        //             }
+        //             this._wires[remoteMetadata.nodeId] = wire;
+        //             try {
+        //                 const isCheckPassed = remoteMetadata.walletAddress === (remoteMetadata.msg, remoteMetadata.msgSigned);
+        //                 // blockchain.recoverAddressFromSignedMessage(remoteMetadata.msg, remoteMetadata.msgSigned);
+        //                 if (!isCheckPassed) {
+        //                     logger.error(`Node node-id=${remoteMetadata.nodeId} signature failed to pass.`);
+        //                 }
+        //                 return isCheckPassed;
+        //             } catch (err) {
+        //                 logger.error(err);
+        //                 return false;
+        //             }
+        //         }
+        //     );
+        // }
 
         try {
             await wire.handshake();
@@ -232,100 +234,103 @@ export class Nodes {
             return;
         }
 
-        if (config.get(ConfigOption.BlockchainIsEnabled)) {
-            const blockchainMetadata = wire.getRemoteMetadata() as NodeBlockchainMetadata;
-            try {
-                // Check if job post belongs to this master.
-                const jobPost = await blockchain.getJobPost(blockchainMetadata.jobPostAddress);
-                const employerAddress = await jobPost.getEmployerAddress();
-                const business = await blockchain.getBusinessClientAt(employerAddress);
-                const businessClientAddress = await business.getOwnerAddress();
-                const masterBusinessClientAddres = blockchain.getWalletAddress();
-                if (businessClientAddress !== masterBusinessClientAddres) {
-                    logger.error(
-                        `Node node-if=${node.nodeId} job post belongs to other master: business-client-address=${businessClientAddress}` +
-                            ` and master-business-client=${masterBusinessClientAddres} don't match.`
-                    );
-                    // TODO: Give instructiond to node what went wrong (and possibility to recover).
-                    wire.close(1002, "Sent job post belongs to other master.");
-                    return;
-                }
+        // if (config.get(ConfigOption.BlockchainIsEnabled)) {
+        //     const blockchainMetadata = wire.getRemoteMetadata() as NodeBlockchainMetadata;
+        //     try {
+        //         // Check if job post belongs to this master.
+        //         const jobPost = await blockchain.getJobPost(blockchainMetadata.jobPostAddress);
+        //         const employerAddress = await jobPost.getEmployerAddress();
+        //         const business = await blockchain.getBusinessClientAt(employerAddress);
+        //         const businessClientAddress = await business.getOwnerAddress();
+        //         const masterBusinessClientAddres = blockchain.getWalletAddress();
+        //         if (businessClientAddress !== masterBusinessClientAddres) {
+        //             logger.error(
+        // tslint:disable-next-line:max-line-length
+        //                 `Node node-if=${node.nodeId} job post belongs to other master: business-client-address=${businessClientAddress}` +
+        //                     ` and master-business-client=${masterBusinessClientAddres} don't match.`
+        //             );
+        //             // TODO: Give instructiond to node what went wrong (and possibility to recover).
+        //             wire.close(1002, "Sent job post belongs to other master.");
+        //             return;
+        //         }
 
-                let doCreateWorkOrder = true;
-                let proceedWithSendWorkOrder = true;
-                const workOrderAddress = blockchainMetadata.workOrderAddress;
-                logger.info(`Parameter last-work-order=${node.lastWorkOrder}.`);
+        //         let doCreateWorkOrder = true;
+        //         let proceedWithSendWorkOrder = true;
+        //         const workOrderAddress = blockchainMetadata.workOrderAddress;
+        //         logger.info(`Parameter last-work-order=${node.lastWorkOrder}.`);
 
-                // Check if work order owner has changed.
-                if (node.lastWorkOrder != null) {
-                    const existingLastWorkOrder = await blockchain.getWorkOrderAt(blockchainMetadata.jobPostAddress, node.lastWorkOrder);
-                    const lastWorkOrderOwner = await existingLastWorkOrder.getWorkerOwner();
-                    const currentWorkOrderOwner = (wire.getRemoteMetadata() as NodeBlockchainMetadata).walletAddress;
-                    if (lastWorkOrderOwner !== currentWorkOrderOwner) {
-                        logger.info(
-                            `Work order owner changed from=${lastWorkOrderOwner} to=${currentWorkOrderOwner}. Discarding saved work order.`
-                        );
-                        node.lastWorkOrder = null;
-                    }
-                }
+        //         // Check if work order owner has changed.
+        //         if (node.lastWorkOrder != null) {
+        //             const existingLastWorkOrder = await blockchain.getWorkOrderAt(blockchainMetadata.jobPostAddress, node.lastWorkOrder);
+        //             const lastWorkOrderOwner = await existingLastWorkOrder.getWorkerOwner();
+        //             const currentWorkOrderOwner = (wire.getRemoteMetadata() as NodeBlockchainMetadata).walletAddress;
+        //             if (lastWorkOrderOwner !== currentWorkOrderOwner) {
+        //                 logger.info(
+        // tslint:disable-next-line:max-line-length
+        //                     `Work order owner changed from=${lastWorkOrderOwner} to=${currentWorkOrderOwner}. Discarding saved work order.`
+        //                 );
+        //                 node.lastWorkOrder = null;
+        //             }
+        //         }
 
-                // Check if node is already working on particular work order (if master has some record).
-                if (node.lastWorkOrder != null) {
-                    logger.info(`Parameter last-work-order=${node.lastWorkOrder} and received work-order=${workOrderAddress}.`);
-                    if (node.lastWorkOrder !== workOrderAddress) {
-                        // TODO: Check if job post is for this work order.
-                        const existingLastWorkOrder = await blockchain.getWorkOrderAt(
-                            blockchainMetadata.jobPostAddress,
-                            node.lastWorkOrder
-                        );
-                        const lastWorkOrderHasLockedTokens = await existingLastWorkOrder.hasTimelockedTokens();
-                        logger.info(`Parameter last-work-order=${node.lastWorkOrder}, has-locked-tokens=${lastWorkOrderHasLockedTokens}`);
-                        if (lastWorkOrderHasLockedTokens) {
-                            wire.workOrder(existingLastWorkOrder.address);
-                            doCreateWorkOrder = false;
-                            proceedWithSendWorkOrder = false;
-                        }
-                    }
-                }
+        //         // Check if node is already working on particular work order (if master has some record).
+        //         if (node.lastWorkOrder != null) {
+        //             logger.info(`Parameter last-work-order=${node.lastWorkOrder} and received work-order=${workOrderAddress}.`);
+        //             if (node.lastWorkOrder !== workOrderAddress) {
+        //                 // TODO: Check if job post is for this work order.
+        //                 const existingLastWorkOrder = await blockchain.getWorkOrderAt(
+        //                     blockchainMetadata.jobPostAddress,
+        //                     node.lastWorkOrder
+        //                 );
+        //                 const lastWorkOrderHasLockedTokens = await existingLastWorkOrder.hasTimelockedTokens();
+        // tslint:disable-next-line:max-line-length
+        //                 logger.info(`Parameter last-work-order=${node.lastWorkOrder}, has-locked-tokens=${lastWorkOrderHasLockedTokens}`);
+        //                 if (lastWorkOrderHasLockedTokens) {
+        //                     wire.workOrder(existingLastWorkOrder.address);
+        //                     doCreateWorkOrder = false;
+        //                     proceedWithSendWorkOrder = false;
+        //                 }
+        //             }
+        //         }
 
-                // Check if node is already working on particular work order (if master doesn't have record).
-                if (workOrderAddress != null && proceedWithSendWorkOrder) {
-                    const existingWorkOrder = await blockchain.getWorkOrderAt(blockchainMetadata.jobPostAddress, workOrderAddress);
-                    const hasLockedTokens = await existingWorkOrder.hasTimelockedTokens();
-                    if (hasLockedTokens) {
-                        logger.blockchain(
-                            `Node node-id=${wire.getRemoteMetadata().nodeId} received work order: work-order-address=${
-                                existingWorkOrder.address
-                            }.`
-                        );
-                        node.lastWorkOrder = existingWorkOrder.address;
-                        wire.workOrder(existingWorkOrder.address);
-                        doCreateWorkOrder = false;
-                    }
-                }
-                if (doCreateWorkOrder) {
-                    const newWorkOrder = await blockchain.createWorkOrder(
-                        blockchainMetadata.jobPostAddress,
-                        blockchainMetadata.walletAddress
-                    );
-                    await blockchain.lockTokens(
-                        newWorkOrder,
-                        parseInt(config.get(ConfigOption.BlockchainRewardAmount)),
-                        config.get(ConfigOption.BlockchainRewardInterval)
-                    );
-                    logger.blockchain(
-                        `Node node-id=${wire.getRemoteMetadata().nodeId} received (created) work order: work-order-address=${
-                            newWorkOrder.address
-                        }.`
-                    );
-                    node.lastWorkOrder = newWorkOrder.address;
-                    wire.workOrder(newWorkOrder.address);
-                }
-                db.nodes().update(node);
-            } catch (err) {
-                logger.error("Failed to createWorkOrder", err);
-            }
-        }
+        //         // Check if node is already working on particular work order (if master doesn't have record).
+        //         if (workOrderAddress != null && proceedWithSendWorkOrder) {
+        //             const existingWorkOrder = await blockchain.getWorkOrderAt(blockchainMetadata.jobPostAddress, workOrderAddress);
+        //             const hasLockedTokens = await existingWorkOrder.hasTimelockedTokens();
+        //             if (hasLockedTokens) {
+        //                 logger.blockchain(
+        //                     `Node node-id=${wire.getRemoteMetadata().nodeId} received work order: work-order-address=${
+        //                         existingWorkOrder.address
+        //                     }.`
+        //                 );
+        //                 node.lastWorkOrder = existingWorkOrder.address;
+        //                 wire.workOrder(existingWorkOrder.address);
+        //                 doCreateWorkOrder = false;
+        //             }
+        //         }
+        //         if (doCreateWorkOrder) {
+        //             const newWorkOrder = await blockchain.createWorkOrder(
+        //                 blockchainMetadata.jobPostAddress,
+        //                 blockchainMetadata.walletAddress
+        //             );
+        //             await blockchain.lockTokens(
+        //                 newWorkOrder,
+        //                 parseInt(config.get(ConfigOption.BlockchainRewardAmount)),
+        //                 config.get(ConfigOption.BlockchainRewardInterval)
+        //             );
+        //             logger.blockchain(
+        //                 `Node node-id=${wire.getRemoteMetadata().nodeId} received (created) work order: work-order-address=${
+        //                     newWorkOrder.address
+        //                 }.`
+        //             );
+        //             node.lastWorkOrder = newWorkOrder.address;
+        //             wire.workOrder(newWorkOrder.address);
+        //         }
+        //         db.nodes().update(node);
+        //     } catch (err) {
+        //         logger.error("Failed to createWorkOrder", err);
+        //     }
+        // }
 
         // TODO: Extract to separate method.
         async function sendStatistics(): Promise<void> {
@@ -428,93 +433,95 @@ export class Nodes {
         wire.on("bandwidthData", info => {
             this.onBandwidthData(wire, info);
         });
-        wire.on("networkData", info => {
-            this.onNetworkData(wire, info);
+        wire.on("nodeInfoData", info => {
+            this.onNodeSystemData(wire, info);
         });
         wire.on("storageData", info => {
             this.onStorageData(wire, info);
         });
-        wire.on("signedRequest", async info => {
-            logger.blockchain(`Node node-id=${wire.getRemoteMetadata().nodeId} send signed request: type=${info.data.type}.`);
-            const nodeMetadata = wire.getRemoteMetadata() as NodeBlockchainMetadata;
-            if (nodeMetadata == null) {
-                logger.error("Node remote metadata is invalid.");
-                return;
-            }
-            if (info.data.type === "accept") {
-                try {
-                    const signedRequest = info.data.signedRequest;
-                    if (signedRequest == null) {
-                        logger.error(`Node node-id=${wire.getRemoteMetadata().nodeId} sent signed request is invalid.`);
-                        return;
-                    }
-                    const workOrder = await blockchain.getWorkOrderAt(nodeMetadata.jobPostAddress, info.data.workOrderAddress);
-                    await workOrder.delegatedAccept(signedRequest.nonce, signedRequest.sig);
-                    await workOrder.accept();
-                    wire.signedRequest({
-                        type: "accepted",
-                        workOrderAddress: info.data.workOrderAddress
-                    });
-                } catch (err) {
-                    logger.error(`Error has occured while handling node node-id=${wire.getRemoteMetadata().nodeId} signed request:`, err);
-                }
-            } else if (info.data.type === "release") {
-                try {
-                    const signedRequest = info.data.signedRequest;
-                    const workOrder = await blockchain.getWorkOrderAt(nodeMetadata.jobPostAddress, info.data.workOrderAddress);
+        // wire.on("signedRequest", async info => {
+        //     logger.blockchain(`Node node-id=${wire.getRemoteMetadata().nodeId} send signed request: type=${info.data.type}.`);
+        //     const nodeMetadata = wire.getRemoteMetadata() as NodeBlockchainMetadata;
+        //     if (nodeMetadata == null) {
+        //         logger.error("Node remote metadata is invalid.");
+        //         return;
+        //     }
+        //     if (info.data.type === "accept") {
+        //         try {
+        //             const signedRequest = info.data.signedRequest;
+        //             if (signedRequest == null) {
+        //                 logger.error(`Node node-id=${wire.getRemoteMetadata().nodeId} sent signed request is invalid.`);
+        //                 return;
+        //             }
+        //             const workOrder = await blockchain.getWorkOrderAt(nodeMetadata.jobPostAddress, info.data.workOrderAddress);
+        //             await workOrder.delegatedAccept(signedRequest.nonce, signedRequest.sig);
+        //             await workOrder.accept();
+        //             wire.signedRequest({
+        //                 type: "accepted",
+        //                 workOrderAddress: info.data.workOrderAddress
+        //             });
+        //         } catch (err) {
+        // tslint:disable-next-line:max-line-length
+        //             logger.error(`Error has occured while handling node node-id=${wire.getRemoteMetadata().nodeId} signed request:`, err);
+        //         }
+        //     } else if (info.data.type === "release") {
+        //         try {
+        //             const signedRequest = info.data.signedRequest;
+        //             const workOrder = await blockchain.getWorkOrderAt(nodeMetadata.jobPostAddress, info.data.workOrderAddress);
 
-                    const workerOwner = await workOrder.getWorkerOwner();
-                    if (workerOwner !== (wire.getRemoteMetadata() as NodeBlockchainMetadata).walletAddress) {
-                        const msg = `Worker-owner=${workerOwner} and node node-id=${wire.getRemoteMetadata().nodeId} wallet-addresss=${
-                            (wire.getRemoteMetadata() as NodeBlockchainMetadata).walletAddress
-                        } do not match.`;
-                        wire.signedRequest({
-                            error: msg,
-                            type: "released",
-                            workOrderAddress: "-"
-                        });
-                        logger.warn(`Node node-id=${wire.getRemoteMetadata().nodeId} received error message='${msg}'.`);
-                        return;
-                    }
+        //             const workerOwner = await workOrder.getWorkerOwner();
+        //             if (workerOwner !== (wire.getRemoteMetadata() as NodeBlockchainMetadata).walletAddress) {
+        //                 const msg = `Worker-owner=${workerOwner} and node node-id=${wire.getRemoteMetadata().nodeId} wallet-addresss=${
+        //                     (wire.getRemoteMetadata() as NodeBlockchainMetadata).walletAddress
+        //                 } do not match.`;
+        //                 wire.signedRequest({
+        //                     error: msg,
+        //                     type: "released",
+        //                     workOrderAddress: "-"
+        //                 });
+        //                 logger.warn(`Node node-id=${wire.getRemoteMetadata().nodeId} received error message='${msg}'.`);
+        //                 return;
+        //             }
 
-                    const beneficiary = info.data.beneficiary;
-                    if (signedRequest == null || beneficiary == null) {
-                        logger.error(`Node node-id=${wire.getRemoteMetadata().nodeId} sent signed request or beneficiary is invalid.`);
-                        return;
-                    }
-                    await workOrder.delegatedRelease(beneficiary, signedRequest.nonce, signedRequest.sig);
-                    if (info.data.extendWorkOrder) {
-                        await blockchain.lockTokens(
-                            workOrder,
-                            parseInt(config.get(ConfigOption.BlockchainRewardAmount)),
-                            config.get(ConfigOption.BlockchainRewardInterval)
-                        );
-                    }
+        //             const beneficiary = info.data.beneficiary;
+        //             if (signedRequest == null || beneficiary == null) {
+        //                 logger.error(`Node node-id=${wire.getRemoteMetadata().nodeId} sent signed request or beneficiary is invalid.`);
+        //                 return;
+        //             }
+        //             await workOrder.delegatedRelease(beneficiary, signedRequest.nonce, signedRequest.sig);
+        //             if (info.data.extendWorkOrder) {
+        //                 await blockchain.lockTokens(
+        //                     workOrder,
+        //                     parseInt(config.get(ConfigOption.BlockchainRewardAmount)),
+        //                     config.get(ConfigOption.BlockchainRewardInterval)
+        //                 );
+        //             }
 
-                    // Sanity check.
-                    if (wire.uptime != null) {
-                        await wire.uptime({
-                            nodeId: Helpers.getNodeUid(wire.getRemoteMetadata()),
-                            timestamp: new Date().getTime(),
-                            from: new Date().setMinutes(new Date().getMinutes() - 1),
-                            to: new Date().getTime()
-                        });
-                    }
+        //             // Sanity check.
+        //             if (wire.uptime != null) {
+        //                 await wire.uptime({
+        //                     nodeId: Helpers.getNodeUid(wire.getRemoteMetadata()),
+        //                     timestamp: new Date().getTime(),
+        //                     from: new Date().setMinutes(new Date().getMinutes() - 1),
+        //                     to: new Date().getTime()
+        //                 });
+        //             }
 
-                    wire.signedRequest({
-                        type: "released",
-                        workOrderAddress: info.data.workOrderAddress
-                    });
-                } catch (err) {
-                    wire.signedRequest({
-                        error: err.message,
-                        type: "released",
-                        workOrderAddress: "-"
-                    });
-                    logger.error(`Error has occured while handling node node-id=${wire.getRemoteMetadata().nodeId} signed release:`, err);
-                }
-            }
-        });
+        //             wire.signedRequest({
+        //                 type: "released",
+        //                 workOrderAddress: info.data.workOrderAddress
+        //             });
+        //         } catch (err) {
+        //             wire.signedRequest({
+        //                 error: err.message,
+        //                 type: "released",
+        //                 workOrderAddress: "-"
+        //             });
+        // tslint:disable-next-line:max-line-length
+        //             logger.error(`Error has occured while handling node node-id=${wire.getRemoteMetadata().nodeId} signed release:`, err);
+        //         }
+        //     }
+        // });
 
         wire.once("closed", () => this.onDisconnect(wire));
         wire.once("error", (err: Error) => this.onDisconnect(wire, err));
@@ -545,27 +552,7 @@ export class Nodes {
                 storage: {
                     available: 0,
                     used: 0,
-                    total: 0,
-                    deviceType: "",
-                    settingsVersion: "",
-                    arch: "",
-                    platform: "",
-                    release: "",
-                    pingIpv6: false,
-                    distro: "",
-                    ipv4: "",
-                    ipv6: "",
-                    mac: "",
-                    iface: "",
-                    speed: 0,
-                    ifaceName: "",
-                    internal: false,
-                    virtual: false,
-                    operstate: "",
-                    type: "",
-                    mtu: 0,
-                    duplex: "",
-                    interfacesLength: 0
+                    total: 0
                 },
                 connections: {
                     webrtc: {
@@ -609,17 +596,27 @@ export class Nodes {
                 bandwidthDownload: 0,
                 bandwidthUpload: 0,
                 healthScore: 0,
-                network: {
-                    mac: "",
+                system: {
+                    platform: "",
+                    release: "",
+                    arch: "",
+                    distro: "",
+                    deviceType: "",
+                    settingsVersion: "",
                     iface: "",
-                    speed: 0,
                     ifaceName: "",
-                    virtual: false,
+                    mac: "",
                     internal: false,
+                    virtual: false,
                     operstate: "",
                     type: "",
+                    duplex: "",
                     mtu: 0,
-                    duplex: ""
+                    speed: 0,
+                    ipv4: "",
+                    ipv6: "",
+                    pingIpv6: false,
+                    interfacesLength: 0
                 }
             };
         }
@@ -666,43 +663,11 @@ export class Nodes {
             node.storage = {
                 used: 0,
                 available: 0,
-                total: 0,
-                deviceType: "",
-                settingsVersion: "",
-                arch: "",
-                platform: "",
-                release: "",
-                pingIpv6: false,
-                distro: "",
-                ipv4: "",
-                ipv6: "",
-                mac: "",
-                iface: "",
-                speed: 0,
-                ifaceName: "",
-                internal: false,
-                virtual: false,
-                operstate: "",
-                type: "",
-                duplex: "",
-                mtu: 0,
-                interfacesLength: 0
+                total: 0
             };
             node.latency = 0;
             node.bandwidthUpload = 0;
             node.bandwidthDownload = 0;
-            node.network = {
-                mac: "",
-                iface: "",
-                speed: 0,
-                ifaceName: "",
-                virtual: false,
-                internal: false,
-                operstate: "",
-                type: "",
-                mtu: 0,
-                duplex: ""
-            };
 
             db.nodes().insert(node);
         }
@@ -723,48 +688,64 @@ export class Nodes {
         return node;
     }
 
-    private onNetworkData(wire: ExtendedWireTypes, networkDataEvent: ProtocolEvent<NetworkInterfaces>): void {
+    private onNodeSystemData(wire: ExtendedWireTypes, systemDataEvent: ProtocolEvent<NodeInfoData>): void {
         const node = db.nodes().findOne({ nodeId: wire.getRemoteMetadata().nodeId });
         if (!node) {
             logger.error(`Node node-id=${wire.getRemoteMetadata().nodeId} is not found in database.`);
             return;
         }
 
-        if (networkDataEvent.data == null) {
+        if (systemDataEvent.data == null) {
             logger.error(wire.getRemoteMetadata().nodeId + " : metadata : no storage metadata");
             return;
         }
 
-        node.network = {
-            mac: networkDataEvent.data.mac == null ? "" : String(networkDataEvent.data.mac),
-            iface: networkDataEvent.data.iface == null ? "" : String(networkDataEvent.data.iface),
-            speed: parseInt(networkDataEvent.data.speed!.toString()) ? parseInt(networkDataEvent.data.speed!.toString()) : -1,
-            ifaceName: networkDataEvent.data.ifaceName == null ? "" : String(networkDataEvent.data.ifaceName),
-            internal: !!networkDataEvent.data.internal,
-            virtual: !!networkDataEvent.data.virtual,
-            operstate: networkDataEvent.data.operstate == null ? "" : String(networkDataEvent.data.operstate),
-            type: networkDataEvent.data.type == null ? "" : String(networkDataEvent.data.type),
-            mtu: parseInt(networkDataEvent.data.mtu.toString()) ? parseInt(networkDataEvent.data.mtu.toString()) : -1,
-            duplex: networkDataEvent.data.duplex == null ? "" : String(networkDataEvent.data.duplex)
+        node.system = {
+            distro: systemDataEvent.data.distro == null ? "" : String(systemDataEvent.data.distro),
+            arch: systemDataEvent.data.arch == null ? "" : String(systemDataEvent.data.arch),
+            release: systemDataEvent.data.release == null ? "" : String(systemDataEvent.data.release),
+            platform: systemDataEvent.data.platform == null ? "" : String(systemDataEvent.data.platform),
+            settingsVersion: systemDataEvent.data.settingsVersion == null ? "" : String(systemDataEvent.data.settingsVersion),
+            deviceType: systemDataEvent.data.deviceType == null ? "" : String(systemDataEvent.data.deviceType),
+            iface: systemDataEvent.data.iface == null ? "" : String(systemDataEvent.data.iface),
+            ifaceName: systemDataEvent.data.ifaceName == null ? "" : String(systemDataEvent.data.ifaceName),
+            mac: systemDataEvent.data.mac == null ? "" : String(systemDataEvent.data.mac),
+            internal: !!systemDataEvent.data.internal,
+            virtual: !!systemDataEvent.data.virtual,
+            operstate: systemDataEvent.data.operstate == null ? "" : String(systemDataEvent.data.operstate),
+            type: systemDataEvent.data.type == null ? "" : String(systemDataEvent.data.type),
+            duplex: systemDataEvent.data.duplex == null ? "" : String(systemDataEvent.data.duplex),
+            mtu: systemDataEvent.data.mtu ? parseInt(systemDataEvent.data.mtu.toString()) : 0,
+            speed: systemDataEvent.data.speed ? parseInt(systemDataEvent.data.speed.toString()) : 0,
+            ipv4: systemDataEvent.data.ipv4 == null ? "" : String(systemDataEvent.data.ipv4),
+            ipv6: systemDataEvent.data.ipv6 == null ? "" : String(systemDataEvent.data.ipv6),
+            pingIpv6: !!systemDataEvent.data.pingIpv6,
+            interfacesLength: systemDataEvent.data.interfacesLength ? parseInt(systemDataEvent.data.interfacesLength.toString()) : 0
         };
 
-        dataCluster.network({
+        dataCluster.system({
             nodeId: Helpers.getNodeUid(node),
             timestamp: Date.now(),
-            iface: node.network.iface,
-            ifaceName: node.network.ifaceName,
-            mac: node.network.mac,
-            internal: node.network.internal,
-            virtual: node.network.virtual,
-            operstate: node.network.operstate,
-            type: node.network.type,
-            duplex: node.network.duplex,
-            mtu: node.network.mtu,
-            speed: node.network.speed,
-            ipv4: node.storage.ipv4,
-            ipv6: node.storage.ipv6,
-            pingIpv6: node.storage.pingIpv6,
-            interfacesLength: node.storage.interfacesLength
+            platform: node.system.platform,
+            release: node.system.release,
+            arch: node.system.arch,
+            distro: node.system.distro,
+            deviceType: node.system.deviceType,
+            settingsVersion: node.system.settingsVersion,
+            iface: node.system.iface,
+            ifaceName: node.system.ifaceName,
+            mac: node.system.mac,
+            internal: node.system.internal,
+            virtual: node.system.virtual,
+            operstate: node.system.operstate,
+            type: node.system.type,
+            duplex: node.system.duplex,
+            mtu: node.system.mtu,
+            speed: node.system.speed,
+            ipv4: node.system.ipv4,
+            ipv6: node.system.ipv6,
+            pingIpv6: node.system.pingIpv6,
+            interfacesLength: node.system.interfacesLength
         });
 
         db.nodes().update(node);
@@ -794,29 +775,7 @@ export class Nodes {
         node.storage = {
             total: parseInt(storageDataEvent.data.total.toString()) ? parseInt(storageDataEvent.data.total.toString()) : -1,
             used: parseInt(storageDataEvent.data.used.toString()) ? parseInt(storageDataEvent.data.used.toString()) : -1,
-            available: parseInt(storageDataEvent.data.available.toString()) ? parseInt(storageDataEvent.data.available.toString()) : -1,
-            deviceType: storageDataEvent.data.deviceType == null ? "" : String(storageDataEvent.data.deviceType),
-            settingsVersion: storageDataEvent.data.settingsVersion == null ? "" : String(storageDataEvent.data.settingsVersion),
-            arch: storageDataEvent.data.arch == null ? "" : String(storageDataEvent.data.arch),
-            platform: storageDataEvent.data.platform == null ? "" : String(storageDataEvent.data.platform),
-            release: storageDataEvent.data.release == null ? "" : String(storageDataEvent.data.release),
-            pingIpv6: !!storageDataEvent.data.pingIpv6,
-            distro: storageDataEvent.data.distro == null ? "" : String(storageDataEvent.data.distro),
-            ipv4: storageDataEvent.data.ipv4 == null ? "" : String(storageDataEvent.data.ipv4),
-            ipv6: storageDataEvent.data.ipv6 == null ? "" : String(storageDataEvent.data.ipv6),
-            mac: storageDataEvent.data.mac == null ? "" : String(storageDataEvent.data.mac),
-            iface: storageDataEvent.data.iface == null ? "" : String(storageDataEvent.data.iface),
-            speed: parseInt(storageDataEvent.data.speed!.toString()) ? parseInt(storageDataEvent.data.speed!.toString()) : -1,
-            ifaceName: storageDataEvent.data.ifaceName == null ? "" : String(storageDataEvent.data.ifaceName),
-            internal: !!storageDataEvent.data.internal,
-            virtual: !!storageDataEvent.data.virtual,
-            operstate: storageDataEvent.data.operstate == null ? "" : String(storageDataEvent.data.operstate),
-            type: storageDataEvent.data.type == null ? "" : String(storageDataEvent.data.type),
-            mtu: parseInt(storageDataEvent.data.mtu!.toString()) ? parseInt(storageDataEvent.data.mtu!.toString()) : -1,
-            duplex: storageDataEvent.data.duplex == null ? "" : String(storageDataEvent.data.duplex),
-            interfacesLength: parseInt(storageDataEvent.data.interfacesLength.toString())
-                ? parseInt(storageDataEvent.data.interfacesLength.toString())
-                : -1
+            available: parseInt(storageDataEvent.data.available.toString()) ? parseInt(storageDataEvent.data.available.toString()) : -1
         };
 
         const healthScoreData: Partial<ScoreWeights> = {};
@@ -832,20 +791,7 @@ export class Nodes {
             timestamp: Date.now(),
             storageTotal: node.storage.total,
             storageAvailable: node.storage.available,
-            storageUsed: node.storage.used,
-            arch: node.storage.arch,
-            deviceType: node.storage.deviceType,
-            platform: node.storage.platform,
-            release: node.storage.release,
-            distro: node.storage.distro,
-            iface: node.storage.iface,
-            mac: node.storage.mac,
-            speed: node.storage.speed,
-            settingsVersion: node.storage.settingsVersion,
-            ipv4: node.storage.ipv4,
-            ipv6: node.storage.ipv6,
-            pingIpv6: node.storage.pingIpv6,
-            interfacesLength: node.storage.interfacesLength
+            storageUsed: node.storage.used
         });
 
         db.nodes().update(node);

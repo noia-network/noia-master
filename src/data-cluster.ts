@@ -21,10 +21,7 @@ export const enum NodeEvents {
     RemoveWhitelistedClient = "node-remove-whitelisted-client",
     ListWhitelistedClients = "node-list-whitelisted-clients",
     IsAlive = "node-is-alive",
-    System = "node-system",
-    Network = "node-network",
-    ExternalIpv4 = "node-externalipv4",
-    ExternalIpv6 = "node-externalipv6"
+    System = "node-system"
 }
 
 export interface ConnectedDto {
@@ -57,32 +54,31 @@ export interface StorageDto {
     storageTotal: number;
     storageAvailable: number;
     storageUsed: number;
-    deviceType: string;
-    settingsVersion: string;
-    arch: string;
-    release: string;
-    platform: string;
-    iface: string;
-    mac: string;
-    speed: number;
-    distro: string;
-    ipv4?: string;
-    ipv6?: string;
-    pingIpv6: boolean;
-    operstate?: string;
-    type?: string;
-    mtu?: number;
-    duplex?: string;
-    interfacesLength?: number;
 }
 
 export interface SystemDto {
     nodeId: string;
     timestamp: number;
-    platform: string;
-    distro: string;
-    release: string;
-    arch: string;
+    platform?: string;
+    distro?: string;
+    release?: string;
+    arch?: string;
+    deviceType?: string;
+    settingsVersion?: string;
+    iface?: string;
+    ifaceName?: string;
+    mac?: string;
+    internal?: boolean;
+    virtual?: boolean;
+    operstate?: string;
+    duplex?: string;
+    type?: string;
+    mtu?: number;
+    speed?: number;
+    ipv4?: string;
+    ipv6?: string;
+    pingIpv6?: boolean;
+    interfacesLength: number;
 }
 
 export interface ExternalIpv4Dto {
@@ -94,22 +90,28 @@ export interface ExternalIpv6Dto {
 }
 
 export interface NetworkDto {
-    nodeId: string;
-    timestamp: number;
-    iface: string;
-    ifaceName: string;
-    mac: string;
-    internal: boolean;
-    virtual: boolean;
-    operstate: string;
-    type: string;
-    duplex: string;
-    mtu: number;
-    speed: number;
-    ipv4?: string;
-    ipv6?: string;
-    pingIpv6: boolean;
-    interfacesLength: number;
+    distro?: string;
+    // deviceType?: string;
+    // settingsVersion?: string;
+    // arch?: string;
+    // platform?: string;
+    // release?: string;
+    // nodeId: string;
+    // timestamp: number;
+    // iface?: string;
+    // ifaceName?: string;
+    // mac?: string;
+    // internal?: boolean;
+    // virtual?: boolean;
+    // operstate?: string;
+    // type?: string;
+    // duplex?: string;
+    // mtu?: number;
+    // speed?: number;
+    // ipv4?: string;
+    // ipv6?: string;
+    // pingIpv6?: boolean;
+    // interfacesLength?: number;
 }
 
 export interface MetadataDto {
@@ -467,18 +469,6 @@ export class DataCluster extends SocketClient {
 
     public async system(data: SystemDto): Promise<void> {
         this.send<NodeEvents, SystemDto>(NodeEvents.System, data);
-    }
-
-    public async network(data: NetworkDto): Promise<void> {
-        this.send<NodeEvents, NetworkDto>(NodeEvents.Network, data);
-    }
-
-    public async externalIpv4(data: ExternalIpv4Dto): Promise<void> {
-        this.send<NodeEvents, ExternalIpv4Dto>(NodeEvents.ExternalIpv4, data);
-    }
-
-    public async externalIpv6(data: ExternalIpv6Dto): Promise<void> {
-        this.send<NodeEvents, ExternalIpv6Dto>(NodeEvents.ExternalIpv6, data);
     }
 
     public async metadata(data: MetadataDto): Promise<void> {
