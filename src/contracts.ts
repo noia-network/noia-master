@@ -72,7 +72,7 @@ export interface Node {
         [TKey in ClientConnectionsTypes]: {
             checkStatus: "failed" | "succeeded" | "not-checked";
             port: number | null;
-        }
+        };
     };
     disconnectedAt?: number;
     domain?: string;
@@ -84,10 +84,6 @@ export interface Node {
         used: number;
         available: number;
         total: number;
-        arch: string;
-        release: string;
-        platform: string;
-        deviceType: string;
     };
     tokens?: number;
     uploaded?: number;
@@ -105,6 +101,28 @@ export interface Node {
     distance?: number;
     latency?: number;
     lastWorkOrder: string | null;
+    system: {
+        distro?: string;
+        deviceType?: string;
+        settingsVersion?: string;
+        arch?: string;
+        platform?: string;
+        release?: string;
+        ifaceName: string;
+        ipv4?: string;
+        ipv6?: string;
+        iface: string;
+        mac?: string;
+        internal?: boolean;
+        virtual?: boolean;
+        operstate?: string;
+        type?: string;
+        duplex?: string;
+        mtu?: number;
+        speed?: number;
+        pingIpv6?: boolean;
+        interfacesLength: number;
+    };
 }
 
 export interface Candidate {

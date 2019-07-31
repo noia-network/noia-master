@@ -85,10 +85,7 @@ export class Master {
         await Promise.all([this.listenClients(), this.listenNodes(), this.listenApi()]);
         // Websocket for nodes
         this.wssNodes.on("connection", (ws, req) => {
-            this.nodes.connect(
-                ws,
-                req
-            );
+            this.nodes.connect(ws, req);
         });
 
         // Websocket for clients

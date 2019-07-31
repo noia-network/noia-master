@@ -20,7 +20,8 @@ export const enum NodeEvents {
     AddWhitelistedClient = "node-whitelist-client",
     RemoveWhitelistedClient = "node-remove-whitelisted-client",
     ListWhitelistedClients = "node-list-whitelisted-clients",
-    IsAlive = "node-is-alive"
+    IsAlive = "node-is-alive",
+    System = "node-system"
 }
 
 export interface ConnectedDto {
@@ -53,10 +54,39 @@ export interface StorageDto {
     storageTotal: number;
     storageAvailable: number;
     storageUsed: number;
-    arch: string;
-    release: string;
-    platform: string;
-    deviceType: string;
+}
+
+export interface SystemDto {
+    nodeId: string;
+    timestamp: number;
+    platform?: string;
+    distro?: string;
+    release?: string;
+    arch?: string;
+    deviceType?: string;
+    settingsVersion?: string;
+    iface?: string;
+    ifaceName?: string;
+    mac?: string;
+    internal?: boolean;
+    virtual?: boolean;
+    operstate?: string;
+    duplex?: string;
+    type?: string;
+    mtu?: number;
+    speed?: number;
+    ipv4?: string;
+    ipv6?: string;
+    pingIpv6?: boolean;
+    interfacesLength: number;
+}
+
+export interface ExternalIpv4Dto {
+    ipv4: string;
+}
+
+export interface ExternalIpv6Dto {
+    ipv6: string;
 }
 
 export interface MetadataDto {
@@ -410,6 +440,10 @@ export class DataCluster extends SocketClient {
 
     public async storage(data: StorageDto): Promise<void> {
         this.send<NodeEvents, StorageDto>(NodeEvents.Storage, data);
+    }
+
+    public async system(data: SystemDto): Promise<void> {
+        this.send<NodeEvents, SystemDto>(NodeEvents.System, data);
     }
 
     public async metadata(data: MetadataDto): Promise<void> {

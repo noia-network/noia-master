@@ -277,9 +277,8 @@ export function cli(master: Master): void {
                         timestamp: new Date().getTime()
                     });
                     CliHelpers.log(
-                        `Node ${nodeIndex}/${count} node-id=${node.nodeId}, airdrop-address=${node.airdropAddress}, status=${
-                            node.status
-                        }, online-time=${uptime.hours}:${uptime.minutes}:${uptime.seconds}.`
+                        // tslint:disable-next-line:max-line-length
+                        `Node ${nodeIndex}/${count} node-id=${node.nodeId}, airdrop-address=${node.airdropAddress}, status=${node.status}, online-time=${uptime.hours}:${uptime.minutes}:${uptime.seconds}.`
                     );
                     if (args.options.dump) {
                         CliHelpers.log("Database dump:");

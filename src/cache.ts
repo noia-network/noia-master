@@ -622,9 +622,8 @@ export class Cache {
                                 continue;
                             } else if (nodeTo.storageUsable < contentSize) {
                                 logger.warn(
-                                    `${nodeTo.nodeId} does not have enough usable storage ${
-                                        nodeTo.storageUsable
-                                    } for file of ${contentSize}`
+                                    // tslint:disable-next-line:max-line-length
+                                    `${nodeTo.nodeId} does not have enough usable storage ${nodeTo.storageUsable} for file of ${contentSize}`
                                 );
                                 nodeTo = null;
                                 continue;
@@ -768,9 +767,8 @@ export class Cache {
 
             if (onlineNode.storage.total < contentSize) {
                 logger.caching(
-                    `Node node-id=${onlineNode.nodeId} total-storage=${
-                        onlineNode.storage.total
-                    } < content-size=${contentSize}, content-id=${contentData.contentId}.`
+                    // tslint:disable-next-line:max-line-length
+                    `Node node-id=${onlineNode.nodeId} total-storage=${onlineNode.storage.total} < content-size=${contentSize}, content-id=${contentData.contentId}.`
                 );
                 continue;
             } else if (onlineNode.storage.available < contentSize) {
@@ -878,9 +876,8 @@ export class Cache {
             });
 
             logger.caching(
-                `node-id=${onlineNode.nodeId} received seeding command: content-id=${contentData.contentId}, pieces=${
-                    contentData.pieces.length
-                }.`
+                // tslint:disable-next-line:max-line-length
+                `node-id=${onlineNode.nodeId} received seeding command: content-id=${contentData.contentId}, pieces=${contentData.pieces.length}.`
             );
         }
     }
