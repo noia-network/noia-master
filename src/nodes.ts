@@ -619,13 +619,6 @@ export class Nodes {
                     ipv6: "",
                     pingIpv6: false,
                     interfacesLength: 0
-                },
-                pingData: {
-                    host: "",
-                    time: 0,
-                    min: 0,
-                    max: 0,
-                    avg: 0
                 }
             };
         }
@@ -781,20 +774,8 @@ export class Nodes {
             return;
         }
 
-        try {
-            node.pingData = {
-                host: pingDataEvent.data.host == null ? "" : String(pingDataEvent.data.host),
-                time: pingDataEvent.data.time ? pingDataEvent.data.time : 0,
-                min: pingDataEvent.data.min ? pingDataEvent.data.min : 0,
-                max: pingDataEvent.data.max ? pingDataEvent.data.max : 0,
-                avg: pingDataEvent.data.avg ? pingDataEvent.data.avg : 0
-            };
-        } catch (err) {
-            logger.error(err);
-        }
-
         // find node by ip
-        const findNode = db.nodes().find({ ip: node.pingData.host });
+        const findNode = db.nodes().find({ ip: pingDataEvent.data.host });
         let toNodeId;
         for (let k = 0; k < findNode.length; k++) {
             toNodeId = findNode[k].nodeId;
@@ -804,11 +785,11 @@ export class Nodes {
             nodeId: Helpers.getNodeUid(node),
             toNodeId: toNodeId,
             timestamp: Date.now(),
-            host: node.pingData.host,
-            time: node.pingData.time,
-            min: node.pingData.min,
-            max: node.pingData.max,
-            avg: node.pingData.avg,
+            host: pingDataEvent.data.host == null ? "" : String(pingDataEvent.data.host),
+            time: pingDataEvent.data.time ? pingDataEvent.data.time : 0,
+            min: pingDataEvent.data.min ? pingDataEvent.data.min : 0,
+            max: pingDataEvent.data.max ? pingDataEvent.data.max : 0,
+            avg: pingDataEvent.data.avg ? pingDataEvent.data.avg : 0,
             ipv4: node.system.ipv4,
             ipv6: node.system.ipv6
         });

@@ -123,13 +123,6 @@ export interface Node {
         pingIpv6?: boolean;
         interfacesLength: number;
     };
-    pingData: {
-        host: string;
-        time: number;
-        min: number;
-        max: number;
-        avg: number;
-    };
 }
 
 export interface Candidate {
