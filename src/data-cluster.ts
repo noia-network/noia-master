@@ -21,7 +21,8 @@ export const enum NodeEvents {
     RemoveWhitelistedClient = "node-remove-whitelisted-client",
     ListWhitelistedClients = "node-list-whitelisted-clients",
     IsAlive = "node-is-alive",
-    System = "node-system"
+    System = "node-system",
+    Ping = "node-ping"
 }
 
 export interface ConnectedDto {
@@ -38,6 +39,19 @@ export interface AliveDto {
 export interface DisconnectedDto {
     nodeId: string;
     timestamp: number;
+}
+
+export interface PingDto {
+    nodeId: string;
+    toNodeId?: string;
+    timestamp: number;
+    host: string;
+    time: number;
+    min: number;
+    max: number;
+    avg: number;
+    ipv4?: string;
+    ipv6?: string;
 }
 
 export interface BandwidthDto {
@@ -344,7 +358,7 @@ export class DataCluster extends SocketClient {
     }
 
     /**
-     * List whitelisted clients.
+     * Checks if node alive.
      */
     public async isAlive(isAliveRequest: IsAliveDto): Promise<boolean> {
         return new Promise<boolean>(async (resolve, reject) => {
@@ -444,6 +458,10 @@ export class DataCluster extends SocketClient {
 
     public async system(data: SystemDto): Promise<void> {
         this.send<NodeEvents, SystemDto>(NodeEvents.System, data);
+    }
+
+    public async ping(data: PingDto): Promise<void> {
+        this.send<NodeEvents, PingDto>(NodeEvents.Ping, data);
     }
 
     public async metadata(data: MetadataDto): Promise<void> {

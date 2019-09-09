@@ -4,7 +4,8 @@ import * as protobuf from "protobufjs";
 import * as wrtc from "wrtc";
 import * as sha1 from "sha1";
 import * as fs from "fs-extra";
-import { Wire, ClientRequest, ContentResponse, ClientResponse } from "@noia-network/protocol";
+import * as ping from "ping";
+import { Wire, ClientRequest, ContentResponse, ClientResponse, NodesFromMaster } from "@noia-network/protocol";
 
 import { CliHelpers } from "./cli-helpers";
 import { Helpers } from "./helpers";
@@ -555,6 +556,66 @@ export function cli(master: Master): void {
                         await client.stop();
                     }, responseData.metadata.piecesIntegrity.length * 500);
                 }
+            }
+        });
+    vorpal.command("ping-nodes", "Ping nodes.").action(async args => {
+        const foundNodes = db.nodes().find({ status: NodeStatus.online });
+
+        const allNodes = foundNodes.map<NodesFromMaster>(node => ({
+            ipv4: node.system.ipv4,
+            ipv6: node.system.ipv6,
+            port: node.connections.webrtc.port
+        }));
+
+        for (let i = 0; i < foundNodes.length; i++) {
+            try {
+                const wire = nodes._wires[foundNodes[i].nodeId];
+                for (const nodeIp of allNodes) {
+                    wire.nodesFromMaster({ ipv4: nodeIp.ipv4, ipv6: nodeIp.ipv6, port: nodeIp.port });
+                }
+            } catch (err) {
+                CliHelpers.info(
+                    // tslint:disable-next-line
+                    `Failed to send [${foundNodes[i].nodeId}, ${foundNodes[i].system.ipv4}] to node node-id=${foundNodes[i].nodeId}, error:`,
+                    err
+                );
+            }
+        }
+        CliHelpers.log(`Pinging process begin to ${foundNodes.length} nodes`);
+    });
+    vorpal
+        .command(
+            `master-ping-nodes`,
+            `${"\x1b[35m"}Experimental use.${"\x1b[0m"} Ping nodes from master. ${"\x1b[31m"}WARNING!${"\x1b[0m"} If nodeId is not provided, pinging all online nodes.`
+        )
+        .option("-n, --nodeId <nodeId>", "Node id.")
+        .action(async args => {
+            const query = {};
+
+            // Status.
+            if (args.options.offline != null) {
+                Object.assign(query, { status: NodeStatus.offline });
+            } else {
+                Object.assign(query, { status: NodeStatus.online });
+            }
+
+            // Node id.
+            if (args.options.nodeId != null) {
+                Object.assign(query, { nodeId: args.options.nodeId });
+            }
+            const foundNodes = db.nodes().find(query);
+            CliHelpers.log(`Pinging process running for ${foundNodes.length} nodes...`);
+
+            for (const node of foundNodes) {
+                if (node.system.ipv4 === undefined) {
+                    return;
+                }
+                ping.promise.probe(node.system.ipv4, { min_reply: 10 }).then(async res => {
+                    CliHelpers.info(
+                        // tslint:disable-next-line:max-line-length
+                        `node-id=${node.nodeId}, ip=${node.system.ipv4}, time=${res.time}ms, min=${res.min}, max=${res.max}, avg=${res.avg}, stddev=${res.stddev}`
+                    );
+                });
             }
         });
     vorpal.delimiter("master-cli>").show();

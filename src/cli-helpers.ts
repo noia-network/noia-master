@@ -29,6 +29,11 @@ export namespace CliHelpers {
         console.info(chalk.red(...args));
     }
 
+    // tslint:disable-next-line:no-any
+    export function info(...args: any[]): void {
+        console.info(chalk.green(...args));
+    }
+
     export function logObject(obj: object): void {
         log(JSON.stringify(obj, null, 2));
     }
