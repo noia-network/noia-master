@@ -18,7 +18,8 @@ import {
     BandwidthData,
     ClientRequest,
     Peer,
-    NodeInfoData
+    NodeInfoData,
+    PingData
 } from "@noia-network/protocol";
 
 import { Helpers } from "./helpers";
@@ -437,6 +438,9 @@ export class Nodes {
         wire.on("storageData", info => {
             this.onStorageData(wire, info);
         });
+        wire.on("pingData", info => {
+            this.onPingData(wire, info);
+        });
         // wire.on("signedRequest", async info => {
         //     logger.blockchain(`Node node-id=${wire.getRemoteMetadata().nodeId} send signed request: type=${info.data.type}.`);
         //     const nodeMetadata = wire.getRemoteMetadata() as NodeBlockchainMetadata;
@@ -748,6 +752,46 @@ export class Nodes {
             ipv6: node.system.ipv6,
             pingIpv6: node.system.pingIpv6,
             interfacesLength: node.system.interfacesLength
+        });
+
+        db.nodes().update(node);
+    }
+
+    private onPingData(wire: ExtendedWireTypes, pingDataEvent: ProtocolEvent<PingData>): void {
+        if (!wire.getRemoteMetadata().nodeId) {
+            logger.error(`Node node-id=${wire.getRemoteMetadata().nodeId} is invalid.`);
+            return;
+        }
+
+        const node = db.nodes().findOne({ nodeId: wire.getRemoteMetadata().nodeId });
+        if (!node) {
+            logger.error(`Node node-id=${wire.getRemoteMetadata().nodeId} is not found in database.`);
+            return;
+        }
+
+        if (pingDataEvent.data == null) {
+            logger.error(wire.getRemoteMetadata().nodeId + " : metadata : no ping metadata");
+            return;
+        }
+
+        // find node by ip
+        const findNode = db.nodes().find({ ip: pingDataEvent.data.host });
+        let toNodeId;
+        for (let k = 0; k < findNode.length; k++) {
+            toNodeId = findNode[k].nodeId;
+        }
+
+        dataCluster.ping({
+            nodeId: Helpers.getNodeUid(node),
+            toNodeId: toNodeId,
+            timestamp: Date.now(),
+            host: pingDataEvent.data.host == null ? "" : String(pingDataEvent.data.host),
+            time: pingDataEvent.data.time ? pingDataEvent.data.time : 0,
+            min: pingDataEvent.data.min ? pingDataEvent.data.min : 0,
+            max: pingDataEvent.data.max ? pingDataEvent.data.max : 0,
+            avg: pingDataEvent.data.avg ? pingDataEvent.data.avg : 0,
+            ipv4: node.system.ipv4,
+            ipv6: node.system.ipv6
         });
 
         db.nodes().update(node);
