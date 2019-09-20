@@ -558,31 +558,55 @@ export function cli(master: Master): void {
                 }
             }
         });
-    vorpal.command("ping-nodes", "Ping nodes.").action(async args => {
-        const foundNodes = db.nodes().find({ status: NodeStatus.online });
+    vorpal
+        .command("ping-nodes", "Ping nodes.")
+        .option("-n, --nodeId <nodeId>", "Node id.")
+        .action(async args => {
+            const foundNodes = db.nodes().find({ status: NodeStatus.online });
 
-        const allNodes = foundNodes.map<NodesFromMaster>(node => ({
-            ipv4: node.system.ipv4,
-            ipv6: node.system.ipv6,
-            port: node.connections.webrtc.port
-        }));
-
-        for (let i = 0; i < foundNodes.length; i++) {
+            let allNodes;
             try {
-                const wire = nodes._wires[foundNodes[i].nodeId];
-                for (const nodeIp of allNodes) {
-                    wire.nodesFromMaster({ ipv4: nodeIp.ipv4, ipv6: nodeIp.ipv6, port: nodeIp.port });
-                }
+                allNodes = foundNodes.map<NodesFromMaster>(node => ({
+                    ipv4: node.system !== undefined ? node.system.ipv4 : "",
+                    ipv6: node.system !== undefined ? node.system.ipv6 : "",
+                    port: node.connections.webrtc.port
+                }));
             } catch (err) {
-                CliHelpers.info(
-                    // tslint:disable-next-line
-                    `Failed to send [${foundNodes[i].nodeId}, ${foundNodes[i].system.ipv4}] to node node-id=${foundNodes[i].nodeId}, error:`,
-                    err
-                );
+                CliHelpers.info(`Failed to get, error: ${err}`);
             }
-        }
-        CliHelpers.log(`Pinging process begin to ${foundNodes.length} nodes`);
-    });
+
+            for (const nodeData of foundNodes) {
+                try {
+                    let wire;
+                    if (args.options.nodeId) {
+                        wire = nodes._wires[args.options.nodeId];
+                        wire.nodesFromMaster({
+                            ipv4: nodeData.system.ipv4,
+                            ipv6: nodeData.system.ipv6,
+                            port: nodeData.connections.webrtc.port
+                        });
+                    } else {
+                        wire = nodes._wires[nodeData.nodeId];
+                        if (allNodes !== undefined) {
+                            for (const node of allNodes) {
+                                wire.nodesFromMaster({
+                                    ipv4: node.ipv4 !== undefined ? node.ipv4 : "",
+                                    ipv6: node.ipv6 !== undefined ? node.ipv6 : "",
+                                    port: node.port
+                                });
+                            }
+                        }
+                    }
+                } catch (err) {
+                    CliHelpers.info(
+                        // tslint:disable-next-line
+                        `Failed to send [${nodeData.nodeId}, ${nodeData.system.ipv4}, ${nodeData.system.ipv6}] to node node-id=${nodeData.nodeId}, error:`,
+                        err
+                    );
+                }
+            }
+            CliHelpers.log(`Pinging process begin to ${foundNodes.length} nodes`);
+        });
     vorpal
         .command(
             `master-ping-nodes`,
