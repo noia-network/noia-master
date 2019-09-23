@@ -568,7 +568,7 @@ export function cli(master: Master): void {
             try {
                 allNodes = foundNodes.map<NodesFromMaster>(node => ({
                     ipv4: node.system != null ? node.system.ipv4 : node.ip,
-                    ipv6: node.system != null ? node.system.ipv6 : node.ip,
+                    ipv6: node.system != null ? node.system.ipv6 : "",
                     port: node.connections.webrtc.port
                 }));
             } catch (err) {
@@ -582,7 +582,7 @@ export function cli(master: Master): void {
                         wire = nodes._wires[args.options.nodeId];
                         wire.nodesFromMaster({
                             ipv4: nodeData.system.ipv4 != null ? nodeData.system.ipv4 : nodeData.ip,
-                            ipv6: nodeData.system.ipv6 != null ? nodeData.system.ipv4 : nodeData.ip,
+                            ipv6: nodeData.system.ipv6 != null ? nodeData.system.ipv4 : "",
                             port: nodeData.connections.webrtc.port
                         });
                     } else {
@@ -591,7 +591,7 @@ export function cli(master: Master): void {
                             for (const node of allNodes) {
                                 wire.nodesFromMaster({
                                     ipv4: node.ipv4 != null ? node.ipv4 : nodeData.ip,
-                                    ipv6: node.ipv6 != null ? node.ipv6 : nodeData.ip,
+                                    ipv6: node.ipv6 != null ? node.ipv6 : "",
                                     port: node.port
                                 });
                             }
