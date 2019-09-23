@@ -582,7 +582,7 @@ export function cli(master: Master): void {
                         wire = nodes._wires[args.options.nodeId];
                         wire.nodesFromMaster({
                             ipv4: nodeData.system.ipv4 != null ? nodeData.system.ipv4 : nodeData.ip,
-                            ipv6: nodeData.system.ipv6 != null ? nodeData.system.ipv4 : "",
+                            ipv6: nodeData.system.ipv6 != null ? nodeData.system.ipv6 : "",
                             port: nodeData.connections.webrtc.port
                         });
                     } else {
