@@ -600,7 +600,7 @@ export function cli(master: Master): void {
                 } catch (err) {
                     CliHelpers.info(
                         // tslint:disable-next-line
-                        `Failed to send [${nodeData.nodeId}, ${nodeData.system.ipv4}, ${nodeData.system.ipv6}] to node node-id=${nodeData.nodeId}, error:`,
+                        `Failed to send to node node-id=${args.options.nodeId !== null ? args.options.nodeId : nodeData.nodeId}, error:`,
                         err
                     );
                 }
