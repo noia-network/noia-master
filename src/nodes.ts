@@ -1,18 +1,18 @@
-import * as FSChunkStore from "fs-chunk-store";
-import * as WebSocket from "ws";
-import * as geoip from "geoip-lite";
-import * as geolib from "geolib";
-import * as http from "http";
-import * as sha1 from "sha1";
-import * as getDomain from "getdomain";
+import FSChunkStore from "fs-chunk-store";
+import WebSocket from "ws";
+import geoip from "geoip-lite";
+import geolib from "geolib";
+import http from "http";
+import sha1 from "sha1";
+import getDomain from "getdomain";
 import {
     Seeding,
     Uploaded,
     Requested,
     MasterMetadata,
-    MasterBlockchainMetadata,
+    // MasterBlockchainMetadata,
     NodeMetadata,
-    NodeBlockchainMetadata,
+    // NodeBlockchainMetadata,
     ProtocolEvent,
     StorageData,
     BandwidthData,
@@ -77,18 +77,19 @@ export class Nodes {
     public contentManager: ContentManager;
 
     public async connect(ws: WebSocket, req: http.IncomingMessage): Promise<void> {
-        if (config.get(ConfigOption.BlockchainIsEnabled)) {
-            try {
-                this.wireSetup(ws, req);
-            } catch (err) {
-                logger.error("Error:", err);
-            }
-        } else {
-            this.wireSetup(ws, req);
-        }
+        await this.wireSetup(ws, req);
+        // if (config.get(ConfigOption.BlockchainIsEnabled)) {
+        //     try {
+        //         await this.wireSetup(ws, req);
+        //     } catch (err) {
+        //         logger.error("Error:", err);
+        //     }
+        // } else {
+        //     this.wireSetup(ws, req);
+        // }
     }
 
-    private async wireSetup(ws: WebSocket, req: http.IncomingMessage): Promise<void> {
+    private async wireSetup(ws: string | WebSocket, req: http.IncomingMessage): Promise<void> {
         const ip = Helpers.getIp(req);
         if (ip == null) {
             logger.error("Could not determine remote address!");
@@ -102,7 +103,7 @@ export class Nodes {
         let wire: ExtendedWireTypes;
         // if (!config.get(ConfigOption.BlockchainIsEnabled)) {
         // Not using blockchain.
-        wire = new ExtendedWire<MasterMetadata, NodeMetadata>(ws, masterMetadata, async remoteMetadata => {
+        wire = new ExtendedWire<MasterMetadata, NodeMetadata>(ws as string, masterMetadata, async remoteMetadata => {
             wire.isInternalNode = internalNodesMetadata.get(nodeExternalIp) != null;
             if (typeof remoteMetadata.nodeId !== "string" || remoteMetadata.nodeId.length < 1) {
                 logger.warn("Invalid node id.");

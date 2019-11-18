@@ -1,5 +1,5 @@
-import * as EventEmitter from "events";
-import * as WebSocket from "ws";
+import EventEmitter from "events";
+import WebSocket from "ws";
 import StrictEventEmitter from "strict-event-emitter-types";
 
 import { Helpers } from "../helpers";
@@ -128,7 +128,13 @@ export class SocketClient extends SocketClientEmitter {
                 return;
             }
             isAlive = false;
-            this.socket.ping(Helpers.noop);
+            // err == WebSocket is not open: readyState 0 (CONNECTING)
+            // If database is down, keep master alive.
+            try {
+                this.socket.ping(Helpers.noop);
+            } catch (err) {
+                logger.error(err);
+            }
         }, 10000);
     }
 }

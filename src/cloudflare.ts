@@ -1,5 +1,5 @@
-import * as ipInt from "ip-to-int";
-import * as request from "request";
+import ipInt from "ip-to-int";
+import request from "request";
 
 import { config, ConfigOption } from "./config";
 import { logger } from "./logger";

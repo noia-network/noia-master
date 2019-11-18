@@ -1,5 +1,5 @@
-import * as CryptoJS from "crypto-js";
-import * as sha1 from "sha1";
+import CryptoJS from "crypto-js";
+import sha1 from "sha1";
 
 import { config, ConfigOption } from "./config";
 

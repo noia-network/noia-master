@@ -1,5 +1,5 @@
-import * as WebRtcDirect from "@noia-network/webrtc-direct-client";
-import * as wrtc from "wrtc";
+import WebRtcDirect from "@noia-network/webrtc-direct-client";
+import wrtc from "wrtc";
 
 enum ExitStatus {
     Success = 0

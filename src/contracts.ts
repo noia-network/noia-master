@@ -1,12 +1,12 @@
-import { Wire } from "@noia-network/protocol";
 import {
+    Wire,
     NodeMetadata,
     MasterMetadata,
-    ClientMetadata,
-    MasterBlockchainMetadata,
-    NodeBlockchainMetadata
-} from "@noia-network/protocol/dist/contracts";
-import * as WebSocket from "ws";
+    ClientMetadata
+    // MasterBlockchainMetadata,
+    // NodeBlockchainMetadata
+} from "@noia-network/protocol";
+import WebSocket from "ws";
 import { UptimeRequestDto, UptimeResponse } from "./data-cluster";
 
 export interface LocationData {
@@ -134,8 +134,10 @@ export interface Candidate {
     ports: { [TKey in ClientConnectionsTypes]?: number };
 }
 
-export type ExtendedWireTypes = ExtendedWire<MasterMetadata, NodeMetadata> | ExtendedWire<MasterBlockchainMetadata, NodeBlockchainMetadata>;
-export type WireTypes = Wire<MasterMetadata, NodeMetadata> | Wire<MasterBlockchainMetadata, NodeBlockchainMetadata>;
+export type ExtendedWireTypes = ExtendedWire<MasterMetadata, NodeMetadata>;
+export type WireTypes = Wire<MasterMetadata, NodeMetadata>;
+// export type ExtendedWireTypes = ExtendedWire<MasterMetadata, NodeMetadata> | ExtendedWire<MasterBlockchainMetadata, NodeBlockchainMetadata>;
+// export type WireTypes = Wire<MasterMetadata, NodeMetadata> | Wire<MasterBlockchainMetadata, NodeBlockchainMetadata>;
 
 export class ExtendedWire<TLocalMetadata extends ClientMetadata, TRemoteMetadata extends ClientMetadata> extends Wire<
     TLocalMetadata,

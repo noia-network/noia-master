@@ -1,4 +1,4 @@
-import * as WebSocket from "ws";
+import WebSocket from "ws";
 import chalk from "chalk";
 import { config, ConfigOption } from "./config";
 import { ContentResponse } from "@noia-network/protocol";

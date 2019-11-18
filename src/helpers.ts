@@ -1,6 +1,6 @@
-import * as createTorrent from "create-torrent";
-import * as http from "http";
-import * as sha1 from "sha1";
+import createTorrent from "create-torrent";
+import http from "http";
+import sha1 from "sha1";
 
 import { NodeContentData } from "./nodes";
 import { config, ConfigOption } from "./config";

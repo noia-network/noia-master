@@ -1,11 +1,11 @@
-import * as EventEmitter from "events";
-import * as geolib from "geolib";
-import * as fs from "fs-extra";
-import * as clustering from "density-clustering";
-import * as parseTorrent from "parse-torrent";
-import * as path from "path";
-import * as FSChunkStore from "fs-chunk-store";
-import * as sha1 from "sha1";
+import EventEmitter from "events";
+import geolib from "geolib";
+import fs from "fs-extra";
+import clustering from "density-clustering";
+import parseTorrent from "parse-torrent";
+import path from "path";
+import FSChunkStore from "fs-chunk-store";
+import sha1 from "sha1";
 import StrictEventEmitter from "strict-event-emitter-types";
 
 import { db } from "./db";
@@ -394,7 +394,9 @@ export class ContentManager extends ContentManagerEmitter {
             try {
                 if (!skipDownload) {
                     const dataBuffer = await protocols[protocol].download(filteredSource);
-                    await this.writeFileToDisk(dataBuffer, filteredSource);
+                    if (dataBuffer) {
+                        await this.writeFileToDisk(dataBuffer, filteredSource);
+                    }
                     const torrentData = await this.createTorrent(filteredSource);
                     contentData = Object.assign(torrentData, { type: protocol, popularity: 0, scaleDiff: 0 });
                 }

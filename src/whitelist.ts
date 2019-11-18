@@ -1,4 +1,4 @@
-import * as getDomain from "getdomain";
+import getDomain from "getdomain";
 import { dataCluster } from "./data-cluster";
 import { logger } from "./logger";
 

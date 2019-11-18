@@ -1,5 +1,5 @@
-import * as bodyParser from "body-parser";
-import * as express from "express";
+// import bodyParser from "body-parser";
+import express from "express";
 
 import { NodeStatus, Node } from "./contracts";
 import { config, ConfigOption } from "./config";
@@ -9,8 +9,8 @@ import { logger } from "./logger";
 const router = express.Router();
 const app = express();
 
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
 
 app.use("/api", router);
 

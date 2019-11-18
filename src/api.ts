@@ -1,4 +1,4 @@
-import * as WebSocket from "ws";
+import WebSocket from "ws";
 
 import { logger } from "./logger";
 import { Helpers } from "./helpers";

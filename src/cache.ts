@@ -1,5 +1,5 @@
-import * as geolib from "geolib";
-import * as fs from "fs";
+import geolib from "geolib";
+import fs from "fs";
 
 import { ContentData, contentManager } from "./content-manager";
 import { Helpers } from "./helpers";

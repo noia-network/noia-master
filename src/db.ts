@@ -1,6 +1,6 @@
-import * as fs from "fs-extra";
-import * as lokijs from "lokijs";
-import * as path from "path";
+import fs from "fs-extra";
+import lokijs from "lokijs";
+import path from "path";
 import { Collection } from "lokijs";
 
 import { ContentData } from "./content-manager";

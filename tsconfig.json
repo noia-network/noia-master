@@ -4,20 +4,14 @@
         "target": "es6",
         "rootDir": "./src",
         "outDir": "./dist",
+        "esModuleInterop": true,
         "declaration": true,
         "inlineSourceMap": true,
         "noEmitHelpers": true,
         "importHelpers": true,
         "noImplicitAny": true,
         "strict": true,
-        "lib": ["dom", "es7"],
-        "plugins": [
-            {
-                "name": "tslint-language-service",
-                "alwaysShowRuleFailuresAsWarnings": true,
-                "ignoreDefinitionFiles": true
-            }
-        ]
+        "lib": ["dom", "es7"]
     },
     "include": ["src/**/*"]
 }

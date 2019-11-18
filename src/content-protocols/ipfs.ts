@@ -1,7 +1,7 @@
 // tslint:disable
-import * as EventEmitter from "events";
-import * as fs from "fs";
-import * as path from "path";
+import EventEmitter from "events";
+import fs from "fs";
+import path from "path";
 
 import { config, ConfigOption } from "../config";
 import { logger } from "../logger";

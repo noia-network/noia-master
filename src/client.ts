@@ -1,6 +1,6 @@
-import * as WebSocket from "ws";
-import * as geoip from "geoip-lite";
-import * as getDomain from "getdomain";
+import WebSocket from "ws";
+import geoip from "geoip-lite";
+import getDomain from "getdomain";
 
 import { ClientRequest, ClientResponse } from "@noia-network/protocol";
 import { ConfigOption, config } from "./config";

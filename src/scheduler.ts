@@ -1,6 +1,6 @@
-import * as child_process from "child_process";
-import * as path from "path";
-import * as util from "util";
+import child_process from "child_process";
+import path from "path";
+import util from "util";
 const exec = util.promisify(child_process.exec);
 
 import { WebRtcCheckResult } from "./scripts/webrtc-checker";

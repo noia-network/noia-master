@@ -1,5 +1,5 @@
-import * as path from "path";
-import * as Vorpal from "vorpal";
+import path from "path";
+import Vorpal from "vorpal";
 const vorpal = new Vorpal();
 
 // const DEBUG_LEVEL: undefined | string | number = process.env.DEBUG_LEVEL;
