@@ -95,7 +95,7 @@ export class Master {
                 logger.error("Could not determine client ip address.");
                 return;
             }
-            const client = new Client(this, ws, ip);
+            // const client = new Client(this, ws, ip);
             // TODO: Add client so Client[]?
         });
 
@@ -112,12 +112,13 @@ export class Master {
         return new Promise<void>((resolve, reject) => {
             const protocol = config.get(ConfigOption.ProtocolsWsNodeIsSecure) ? "wss" : "ws";
             logger.info(`Listening for NOIA nodes, endpoint-address=${protocol}://${this.host}:${this.portNodes}.`);
-            this.masterServerNodes.listen(this.portNodes, this.host, (err: Error) => {
-                if (err) {
-                    reject(err);
-                }
-                resolve();
-            });
+            if (this.host) {
+                this.masterServerNodes.listen(this.portNodes, this.host, () => {
+                    resolve();
+                });
+            } else {
+                reject();
+            }
         });
     }
 
@@ -125,25 +126,27 @@ export class Master {
         return new Promise<void>((resolve, reject) => {
             const protocol = config.get(ConfigOption.ProtocolsWsClientIsSecure) ? "wss" : "ws";
             logger.info(`Listening for clients, endpoint-address=${protocol}://${this.host}:${this.portClients}.`);
-            this.masterServerClients.listen(this.portClients, this.host, (err: Error) => {
-                if (err) {
-                    reject(err);
-                }
-                resolve();
-            });
+            if (this.host) {
+                this.masterServerClients.listen(this.portClients, this.host, () => {
+                    resolve();
+                });
+            } else {
+                reject();
+            }
         });
     }
 
     private async listenApi(): Promise<void> {
         return new Promise<void>((resolve, reject) => {
-            const protocol = config.get(ConfigOption.ProtocolsWsApiIsSecure) ? "wss" : "ws";
+            // const protocol = config.get(ConfigOption.ProtocolsWsApiIsSecure) ? "wss" : "ws";
             // logger.info(`Listening for API requests, endpoint=${protocol}://${this.host}:${this.portApi}.`);
-            this.masterServerApi.listen(this.portApi, this.host, (err: Error) => {
-                if (err) {
-                    reject(err);
-                }
-                resolve();
-            });
+            if (this.host) {
+                this.masterServerApi.listen(this.portApi, this.host, () => {
+                    resolve();
+                });
+            } else {
+                reject();
+            }
         });
     }
 
