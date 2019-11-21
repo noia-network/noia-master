@@ -119,6 +119,8 @@ export class Master {
             } else {
                 reject();
             }
+        }).catch(err => {
+            logger.error("Error in listenNodes:", err);
         });
     }
 
@@ -133,6 +135,8 @@ export class Master {
             } else {
                 reject();
             }
+        }).catch(err => {
+            logger.error("Error in listenClients:", err);
         });
     }
 
@@ -147,6 +151,8 @@ export class Master {
             } else {
                 reject();
             }
+        }).catch(err => {
+            logger.error("Error in listenApi:", err);
         });
     }
 

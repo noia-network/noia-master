@@ -67,6 +67,8 @@ class IPFS extends EventEmitter {
                 this.emit("error", errorObject);
                 reject(errorObject);
             });
+        }).catch(err => {
+            logger.error("ipfs", err);
         });
     }
 

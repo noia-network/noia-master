@@ -201,42 +201,47 @@ export class Cache {
      * If metric is passed in data object, it is used for an update, otherwise we take the last known metric from db.
      */
     public updateScore(nodeId: string, data: Partial<ScoreWeights>): void {
-        const nodeData = db.nodes().findOne({ nodeId: nodeId });
-        if (nodeData == null) {
-            logger.error("Called 'updateScore' on invalid node.");
-            return;
+        try {
+            const nodeData = db.nodes().findOne({ nodeId: nodeId });
+            if (nodeData == null) {
+                logger.error("Called 'updateScore' on invalid node.");
+                return;
+            }
+            const defaultWeights = this.getScoreWeights();
+            const scoreWeights: ScoreWeights = {
+                bandwidthUploaded:
+                    data.bandwidthUploaded != null
+                        ? data.bandwidthUploaded
+                        : nodeData.bandwidthUpload !== -1
+                        ? this.normalizeMetric(MetricName.BandwidthUploaded, nodeData.bandwidthUpload)
+                        : 0,
+                bandwidthDownloaded:
+                    data.bandwidthDownloaded != null
+                        ? data.bandwidthDownloaded
+                        : nodeData.bandwidthDownload !== -1
+                        ? this.normalizeMetric(MetricName.BandwithDownloaded, nodeData.bandwidthDownload)
+                        : 0,
+                // tslint:disable-next-line:max-line-length
+                uptime: data.uptime != null ? data.uptime : 0, // nodeData.uptime  // This field is updated from DataHog and corrupts the data
+                latency:
+                    data.latency != null
+                        ? data.latency
+                        : nodeData.latency != null
+                        ? this.normalizeMetric(MetricName.Latency, nodeData.latency)
+                        : 0,
+                storage: data.storage != null ? data.storage : this.normalizeMetric(MetricName.Storage, nodeData.storage.total)
+            };
+            const updatedScore =
+                scoreWeights.bandwidthUploaded * defaultWeights.bandwidthUploaded +
+                scoreWeights.bandwidthDownloaded * defaultWeights.bandwidthDownloaded +
+                scoreWeights.uptime * defaultWeights.uptime +
+                scoreWeights.latency * defaultWeights.storage +
+                scoreWeights.storage * defaultWeights.storage;
+            nodeData.healthScore = updatedScore;
+            db.nodes().upsert({ nodeId: nodeId }, nodeData);
+        } catch (err) {
+            logger.error("Error in function updateScore:", err);
         }
-        const defaultWeights = this.getScoreWeights();
-        const scoreWeights: ScoreWeights = {
-            bandwidthUploaded:
-                data.bandwidthUploaded != null
-                    ? data.bandwidthUploaded
-                    : nodeData.bandwidthUpload !== -1
-                    ? this.normalizeMetric(MetricName.BandwidthUploaded, nodeData.bandwidthUpload)
-                    : 0,
-            bandwidthDownloaded:
-                data.bandwidthDownloaded != null
-                    ? data.bandwidthDownloaded
-                    : nodeData.bandwidthDownload !== -1
-                    ? this.normalizeMetric(MetricName.BandwithDownloaded, nodeData.bandwidthDownload)
-                    : 0,
-            uptime: data.uptime != null ? data.uptime : 0, // nodeData.uptime  // This field is updated from DataHog and corrupts the data
-            latency:
-                data.latency != null
-                    ? data.latency
-                    : nodeData.latency != null
-                    ? this.normalizeMetric(MetricName.Latency, nodeData.latency)
-                    : 0,
-            storage: data.storage != null ? data.storage : this.normalizeMetric(MetricName.Storage, nodeData.storage.total)
-        };
-        const updatedScore =
-            scoreWeights.bandwidthUploaded * defaultWeights.bandwidthUploaded +
-            scoreWeights.bandwidthDownloaded * defaultWeights.bandwidthDownloaded +
-            scoreWeights.uptime * defaultWeights.uptime +
-            scoreWeights.latency * defaultWeights.storage +
-            scoreWeights.storage * defaultWeights.storage;
-        nodeData.healthScore = updatedScore;
-        db.nodes().upsert({ nodeId: nodeId }, nodeData);
     }
 
     /**
@@ -363,12 +368,16 @@ export class Cache {
     }
 
     private async calculateDistances(nodeStatistics: NodeStatistics[], centroid: CentroidObject): Promise<void> {
-        nodeStatistics.forEach((nodeStat, i, nodeStatArray) => {
-            nodeStatArray[i].distance = geolib.getDistance(
-                { latitude: centroid.latitude, longitude: centroid.longitude },
-                { latitude: nodeStat.latitude, longitude: nodeStat.longitude }
-            );
-        });
+        try {
+            nodeStatistics.forEach((nodeStat, i, nodeStatArray) => {
+                nodeStatArray[i].distance = geolib.getDistance(
+                    { latitude: centroid.latitude, longitude: centroid.longitude },
+                    { latitude: nodeStat.latitude, longitude: nodeStat.longitude }
+                );
+            });
+        } catch (err) {
+            logger.error("CalculateDistances err:", err);
+        }
     }
 
     private async updateLoad(
@@ -378,25 +387,33 @@ export class Cache {
         onlineNodesLoad: LoadCounter,
         loadType: LoadType
     ): Promise<void> {
-        const nodeToStatIdx = nodeStatistics.findIndex(nodeStat => nodeStat.nodeId === nodeId);
-        const nodeToData = onlineNodes[onlineNodes.findIndex(onlineNode => onlineNode.nodeId === nodeId)];
-        const bandwidthType = loadType === LoadType.down ? "bandwidthDownload" : "bandwidthUpload";
-        nodeStatistics[nodeToStatIdx][loadType] = nodeToData[bandwidthType] / (nodeToData[loadType] + onlineNodesLoad[nodeId] + 1);
+        try {
+            const nodeToStatIdx = nodeStatistics.findIndex(nodeStat => nodeStat.nodeId === nodeId);
+            const nodeToData = onlineNodes[onlineNodes.findIndex(onlineNode => onlineNode.nodeId === nodeId)];
+            const bandwidthType = loadType === LoadType.down ? "bandwidthDownload" : "bandwidthUpload";
+            nodeStatistics[nodeToStatIdx][loadType] = nodeToData[bandwidthType] / (nodeToData[loadType] + onlineNodesLoad[nodeId] + 1);
+        } catch (err) {
+            logger.error("UpdateLoad err:", err);
+        }
     }
 
     private async autocachingPushToQueue(fileUrl: string, nodeStatistics: NodeStatistics[], copies: number): Promise<void> {
-        if (copies > 0) {
-            copies--;
-            const nodeTo = nodeStatistics.shift();
-            if (nodeTo != null) {
-                contentManager.queueCaching(fileUrl, nodeTo.nodeId, null);
-                logger.caching(`Autocaching ${fileUrl} to node ${nodeTo.nodeId}.`);
+        try {
+            if (copies > 0) {
+                copies--;
+                const nodeTo = nodeStatistics.shift();
+                if (nodeTo != null) {
+                    contentManager.queueCaching(fileUrl, nodeTo.nodeId, null);
+                    logger.caching(`Autocaching ${fileUrl} to node ${nodeTo.nodeId}.`);
+                }
+                setTimeout(async () => {
+                    this.autocachingPushToQueue(fileUrl, nodeStatistics, copies);
+                }, config.get(ConfigOption.CachingRestartInterval) * 200);
+            } else {
+                logger.caching(`Autocaching of ${fileUrl} complete.`);
             }
-            setTimeout(async () => {
-                this.autocachingPushToQueue(fileUrl, nodeStatistics, copies);
-            }, config.get(ConfigOption.CachingRestartInterval) * 200);
-        } else {
-            logger.caching(`Autocaching of ${fileUrl} complete.`);
+        } catch (err) {
+            logger.error("AutocachingPushToQueue err:", err);
         }
     }
 
@@ -404,44 +421,48 @@ export class Cache {
      * This function is called when content does not exist on the swarm and should be initially cached into a single node.
      */
     public async autocachingDecisions(fileUrl: string, location: LocationData): Promise<void> {
-        const copies = config.get(ConfigOption.CachingInitialCopies);
-        const onlineNodes = db
-            .nodes()
-            .find({ status: NodeStatus.online })
-            .filter(node => node.connections.webrtc.checkStatus === "succeeded");
-        const nodeStatistics: NodeStatistics[] = [];
-        onlineNodes.forEach(async onlineNode => {
-            nodeStatistics.push({
-                nodeId: onlineNode.nodeId,
-                latitude: onlineNode.location.latitude,
-                longitude: onlineNode.location.longitude,
-                healthScore: onlineNode.healthScore,
-                loadDownload: onlineNode.loadDownload,
-                loadUpload: 0,
-                storageUsable: onlineNode.storage.total, // NOTE: we want successful cache with the highest probability
-                distance: Infinity,
-                rank: 0
+        try {
+            const copies = config.get(ConfigOption.CachingInitialCopies);
+            const onlineNodes = db
+                .nodes()
+                .find({ status: NodeStatus.online })
+                .filter(node => node.connections.webrtc.checkStatus === "succeeded");
+            const nodeStatistics: NodeStatistics[] = [];
+            onlineNodes.forEach(async onlineNode => {
+                nodeStatistics.push({
+                    nodeId: onlineNode.nodeId,
+                    latitude: onlineNode.location.latitude,
+                    longitude: onlineNode.location.longitude,
+                    healthScore: onlineNode.healthScore,
+                    loadDownload: onlineNode.loadDownload,
+                    loadUpload: 0,
+                    storageUsable: onlineNode.storage.total, // NOTE: we want successful cache with the highest probability
+                    distance: Infinity,
+                    rank: 0
+                });
             });
-        });
-        this.calculateDistances(nodeStatistics, location);
-        const nonownersRankHealth = this.sortStatistics(nodeStatistics, StatisticType.healthScore, SortOrder.desc);
-        const nonownersRankLoadDw = this.sortStatistics(nodeStatistics, StatisticType.loadDonwload, SortOrder.asc);
-        const nonownersRankStorage = this.sortStatistics(nodeStatistics, StatisticType.storageUsable, SortOrder.desc);
-        const nonownersRankDistance = this.sortStatistics(nodeStatistics, StatisticType.distance, SortOrder.asc);
-        const downloaderRankWeights = this.getDownloaderRankWeights();
-        nodeStatistics.forEach(async (noItem, k, noArray) => {
-            const rankDistance = nonownersRankDistance.filter(mapObject => mapObject.index === k);
-            const rankHealth = nonownersRankHealth.filter(mapObject => mapObject.index === k);
-            const rankLoadDw = nonownersRankLoadDw.filter(mapObject => mapObject.index === k);
-            const rankStorage = nonownersRankStorage.filter(mapObject => mapObject.index === k);
-            noArray[k].rank =
-                downloaderRankWeights.distance * rankDistance[0].value +
-                downloaderRankWeights.healthScore * rankHealth[0].value +
-                downloaderRankWeights.load * rankLoadDw[0].value +
-                downloaderRankWeights.storage * rankStorage[0].value;
-        });
-        nodeStatistics.sort(this.sortFunctionGeneratorStatistics(StatisticType.rank, SortOrder.asc));
-        this.autocachingPushToQueue(fileUrl, nodeStatistics, copies);
+            this.calculateDistances(nodeStatistics, location);
+            const nonownersRankHealth = this.sortStatistics(nodeStatistics, StatisticType.healthScore, SortOrder.desc);
+            const nonownersRankLoadDw = this.sortStatistics(nodeStatistics, StatisticType.loadDonwload, SortOrder.asc);
+            const nonownersRankStorage = this.sortStatistics(nodeStatistics, StatisticType.storageUsable, SortOrder.desc);
+            const nonownersRankDistance = this.sortStatistics(nodeStatistics, StatisticType.distance, SortOrder.asc);
+            const downloaderRankWeights = this.getDownloaderRankWeights();
+            nodeStatistics.forEach(async (noItem, k, noArray) => {
+                const rankDistance = nonownersRankDistance.filter(mapObject => mapObject.index === k);
+                const rankHealth = nonownersRankHealth.filter(mapObject => mapObject.index === k);
+                const rankLoadDw = nonownersRankLoadDw.filter(mapObject => mapObject.index === k);
+                const rankStorage = nonownersRankStorage.filter(mapObject => mapObject.index === k);
+                noArray[k].rank =
+                    downloaderRankWeights.distance * rankDistance[0].value +
+                    downloaderRankWeights.healthScore * rankHealth[0].value +
+                    downloaderRankWeights.load * rankLoadDw[0].value +
+                    downloaderRankWeights.storage * rankStorage[0].value;
+            });
+            nodeStatistics.sort(this.sortFunctionGeneratorStatistics(StatisticType.rank, SortOrder.asc));
+            this.autocachingPushToQueue(fileUrl, nodeStatistics, copies);
+        } catch (err) {
+            logger.error(err);
+        }
     }
 
     /**
@@ -453,248 +474,256 @@ export class Cache {
         const cachingStartTimestamp = Helpers.datetime.time();
         logger.caching(`Smart caching procedure started at ${cachingStartTimestamp}.`);
 
-        // 1. Get estimated scale differences and sort in descending order
-        await contentManager.estimateScale();
-        const contents = db.files().find({ popularity: { $gt: 0 } });
-        contents.sort(this.sortFunctionGeneratorContents(factor, SortOrder.desc));
+        try {
+            // 1. Get estimated scale differences and sort in descending order
+            await contentManager.estimateScale();
+            const contents = db.files().find({ popularity: { $gt: 0 } });
+            contents.sort(this.sortFunctionGeneratorContents(factor, SortOrder.desc));
 
-        // 2. Construct object array of NodeStatistics
-        const nodeStatistics: NodeStatistics[] = [];
-        const onlineNodes = db
-            .nodes()
-            .find({ status: NodeStatus.online })
-            .filter(node => node.connections.webrtc.checkStatus === "succeeded");
-        for (const onlineNode of onlineNodes) {
-            const loadDownload =
-                onlineNode.loadDownload != null && onlineNode.bandwidthDownload != null
-                    ? onlineNode.bandwidthDownload / (onlineNode.loadDownload + 1)
-                    : 0;
-            const loadUpload =
-                onlineNode.loadUpload != null && onlineNode.bandwidthUpload != null
-                    ? onlineNode.bandwidthUpload / (onlineNode.loadUpload + 1)
-                    : 0;
-            const contentsCaching = db.nodesContent().find({ nodeId: onlineNode.nodeId, status: "caching" });
-            const contentsCachingSize = await Helpers.getContentsSize(contentsCaching);
-            const contentsDone = db.nodesContent().find({ nodeId: onlineNode.nodeId, status: "done" });
-            const contentsToRemoveSize = await Helpers.getRemovableContentsSize(contentsDone);
-            const usableSize = onlineNode.storage.available - contentsCachingSize;
-            nodeStatistics.push({
-                nodeId: onlineNode.nodeId,
-                latitude: onlineNode.location.latitude,
-                longitude: onlineNode.location.longitude,
-                healthScore: onlineNode.healthScore,
-                loadDownload: loadDownload,
-                loadUpload: loadUpload,
-                storageUsable: usableSize + contentsToRemoveSize,
-                distance: Infinity,
-                rank: 0
-            });
-        }
-
-        // 3. Initialize internal load and storage counters
-        const onlineNodesLoadUp: LoadCounter = {};
-        for (let j = 0; j < onlineNodes.length; j++) {
-            onlineNodesLoadUp[onlineNodes[j].nodeId] = 0;
-        }
-        const onlineNodesLoadDw: LoadCounter = {};
-        for (let j = 0; j < onlineNodes.length; j++) {
-            onlineNodesLoadDw[onlineNodes[j].nodeId] = 0;
-        }
-
-        // 4. For every content that needs to be scaled up, run smart caching procedure
-        for (const content of contents) {
-            if (content.scaleDiff != null && content.scaleDiff > scaleEpsilon) {
-                logger.debug(`Processing content ${content.contentSrc} with number of scale difference ${content.scaleDiff}`);
-                // 5. Get centroids of clustered demand locations, sorted in descending order by cluster size. Note: Optics clustering
-                //    algorithm is used, since: 1) it is density based, 2) supports geodedic distance function, 3) returns outliers
-                const locationCentroids = await contentManager.estimateLocality(content.contentId);
-
-                // 6. Preprocess centroids to match scale differentials
-                let useLocality = true;
-                let centroids = new Array<CentroidObject>();
-                logger.debug(`Processing content ${content.contentSrc} with number of centroids ${locationCentroids.length}`);
-                if (locationCentroids.length === 0) {
-                    logger.error(`There's no locality data for ${content.contentSrc}. Smart caching will continue without locality.`);
-                    useLocality = false;
-                    centroids.push({ latitude: 0, longitude: 0 }); // NOTE: this centroid will not be used, it is only a placeholder
-                } else {
-                    const locationCount = locationCentroids.map(c => c.count).reduce((p, c) => p + c);
-                    const m = Math.ceil(content.scaleDiff / locationCount);
-                    centroids = new Array<CentroidObject>(locationCount * m);
-                    let i = 0;
-                    for (let j = 0; j < locationCentroids.length; j++) {
-                        const step = locationCentroids[j].count * m;
-                        centroids.fill({ latitude: locationCentroids[j].latitude, longitude: locationCentroids[j].longitude }, i, i + step);
-                        i += step;
-                    }
-                }
-
-                // 7. Separate content owners (potential uploaders) and potential downloaders
-                const contentOwnersIds = db
-                    .nodesContent()
-                    .find({ contentId: content.contentId, status: "done" })
-                    .map(nodeContent => nodeContent.nodeId);
-                const contentOwnersCachingIds = db
-                    .nodesContent()
-                    .find({ contentId: content.contentId, status: "caching" })
-                    .map(nodeContent => nodeContent.nodeId);
-                const owners: NodeStatistics[] = [];
-                const nonowners: NodeStatistics[] = [];
-                nodeStatistics.forEach(nodeStat => {
-                    if (contentOwnersCachingIds.indexOf(nodeStat.nodeId) === -1) {
-                        if (contentOwnersIds.indexOf(nodeStat.nodeId) === -1) {
-                            nonowners.push(nodeStat);
-                        } else {
-                            owners.push(nodeStat);
-                        }
-                    }
-                });
-
-                // 8. Sort by multiple statistics
-                const nonownersRankHealth = this.sortStatistics(nonowners, StatisticType.healthScore, SortOrder.desc);
-                const nonownersRankLoadDw = this.sortStatistics(nonowners, StatisticType.loadDonwload, SortOrder.asc);
-                const nonownersRankStorage = this.sortStatistics(nonowners, StatisticType.storageUsable, SortOrder.desc);
-                let nonownersRankDistance = new Array<MapObject>(nonowners.length);
-                const ownersRankHealth = this.sortStatistics(owners, StatisticType.healthScore, SortOrder.desc);
-                const ownersRankLoadUp = this.sortStatistics(owners, StatisticType.loadUpload, SortOrder.asc);
-                let ownersRankDistance = new Array<MapObject>(owners.length);
-
-                // 9. Run downloader and uploader selection procedure
-                let additionalScaling = content.scaleDiff;
-                let centroidPrevious = null;
-                while (additionalScaling > scaleEpsilon && nonowners.length > 0) {
-                    const contentSize = content.contentSize;
-                    // 10. If necessary, recalculate distances from centroid
-                    const centroid = centroids.shift(); // for no-locality case, only the first time we get centroid, later null
-                    if (centroid === centroidPrevious) {
-                        // do nothing
-                    } else if (centroid != null) {
-                        if (useLocality === true && centroid != null) {
-                            this.calculateDistances(nonowners, centroid);
-                            nonownersRankDistance = this.sortStatistics(nonowners, StatisticType.distance, SortOrder.asc);
-                            ownersRankDistance = this.sortStatistics(owners, StatisticType.distance, SortOrder.asc);
-                            centroidPrevious = centroid;
-                        }
-
-                        // 11. Calculate aggregate score (rank) of nonowner and owner nodes, sort them in ascending order by this rank
-                        const downloaderRankWeights = this.getDownloaderRankWeights();
-                        nonowners.forEach(async (noItem, k, noArray) => {
-                            let rankDistance: MapObject[] = [{ index: 0, value: 0 }];
-                            if (useLocality === true) {
-                                rankDistance = nonownersRankDistance.filter(mapObject => mapObject.index === k);
-                            }
-                            const rankHealth = nonownersRankHealth.filter(mapObject => mapObject.index === k);
-                            const rankLoadDw = nonownersRankLoadDw.filter(mapObject => mapObject.index === k);
-                            const rankStorage = nonownersRankStorage.filter(mapObject => mapObject.index === k);
-                            noArray[k].rank =
-                                downloaderRankWeights.distance * rankDistance[0].value +
-                                downloaderRankWeights.healthScore * rankHealth[0].value +
-                                downloaderRankWeights.load * rankLoadDw[0].value +
-                                downloaderRankWeights.storage * rankStorage[0].value;
-                        });
-                        nonowners.sort(this.sortFunctionGeneratorStatistics(StatisticType.rank, SortOrder.asc));
-
-                        const uploaderRankWeights = this.getUploaderRankWeights();
-                        owners.forEach(async (oItem, k, oArray) => {
-                            let rankDistance: MapObject[] = [{ index: 0, value: 0 }];
-                            if (useLocality === true) {
-                                rankDistance = ownersRankDistance.filter(mapObject => mapObject.index === k);
-                            }
-                            const rankHealth = ownersRankHealth.filter(mapObject => mapObject.index === k);
-                            const rankLoadUp = ownersRankLoadUp.filter(mapObject => mapObject.index === k);
-                            oArray[k].rank =
-                                uploaderRankWeights.distance * rankDistance[0].value +
-                                uploaderRankWeights.healthScore * rankHealth[0].value +
-                                uploaderRankWeights.load * rankLoadUp[0].value;
-                        });
-                        owners.sort(this.sortFunctionGeneratorStatistics(StatisticType.rank, SortOrder.asc));
-                    }
-
-                    // 12. Select the downloader node
-                    let nodeTo = null;
-                    while (nodeTo == null && nonowners.length > 0) {
-                        nodeTo = nonowners.shift();
-                        if (nodeTo != null) {
-                            const nodeToLoad = nodeTo.loadDownload;
-                            if (nodeToLoad < loadBound) {
-                                logger.warn(`${nodeTo.nodeId} has too low bandwidth at ${nodeToLoad} per download`);
-                                nodeTo = null;
-                                continue;
-                            } else if (nodeTo.storageUsable < contentSize) {
-                                logger.warn(
-                                    // tslint:disable-next-line:max-line-length
-                                    `${nodeTo.nodeId} does not have enough usable storage ${nodeTo.storageUsable} for file of ${contentSize}`
-                                );
-                                nodeTo = null;
-                                continue;
-                            }
-                        }
-                    }
-
-                    // 13. Select the uploader node
-                    let nodeFrom = null;
-                    while (nodeFrom == null && owners.length > 0) {
-                        nodeFrom = owners.shift();
-                        if (nodeFrom != null) {
-                            const nodeToLoad = nodeFrom.loadUpload;
-                            if (nodeToLoad < loadBound) {
-                                logger.warn(`${nodeFrom.nodeId} has too low bandwidth at ${nodeToLoad} per upload`);
-                                nodeFrom = null;
-                                continue;
-                            } else {
-                                owners.push(nodeFrom); // with enough upload bandwidth it can upload content more times
-                            }
-                        }
-                    }
-
-                    // 14. Push new caching job into the job queue
-                    if (nodeTo != null && nodeFrom != null) {
-                        contentManager.queueCaching(content.contentSrc, nodeTo.nodeId, nodeFrom.nodeId);
-                        logger.caching(
-                            `Content ${content.contentSrc} pushed into caching queue from node ${nodeFrom.nodeId} to node ${nodeTo.nodeId}.`
-                        );
-                        additionalScaling--;
-
-                        // 15. Update load and storage statistics of selected nodes
-                        const nodeToId = nodeTo.nodeId;
-                        onlineNodesLoadDw[nodeToId]++;
-                        this.updateLoad(nodeToId, nodeStatistics, onlineNodes, onlineNodesLoadDw, LoadType.down);
-                        nodeStatistics[nodeStatistics.findIndex(stat => stat.nodeId === nodeToId)].storageUsable -= content.contentSize;
-
-                        const nodeFromId = nodeFrom.nodeId;
-                        onlineNodesLoadUp[nodeFromId]++;
-                        this.updateLoad(nodeFromId, nodeStatistics, onlineNodes, onlineNodesLoadUp, LoadType.up);
-                    } else if (nodeTo != null && nodeFrom == null) {
-                        contentManager.queueCaching(content.contentSrc, nodeTo.nodeId, null);
-                        logger.caching(
-                            `Content ${content.contentSrc} pushed into caching queue from Master node to node ${nodeTo.nodeId}.`
-                        );
-                        additionalScaling--;
-
-                        // 15. Update load and storage statistics of selected nodes
-                        const nodeToId = nodeTo.nodeId;
-                        onlineNodesLoadDw[nodeToId]++;
-                        this.updateLoad(nodeToId, nodeStatistics, onlineNodes, onlineNodesLoadDw, LoadType.down);
-                        nodeStatistics[nodeStatistics.findIndex(stat => stat.nodeId === nodeToId)].storageUsable -= content.contentSize;
-                    }
-                }
-            } else if (content.scaleDiff != null && content.scaleTarget != null && content.scaleTarget >= 1 && content.scaleDiff <= 0) {
-                // Check if file is still master storage. If yes, delete it from master storage
-                fs.access(content.file, fs.constants.F_OK, existanceError => {
-                    if (existanceError) {
-                        // do nothing
-                    } else {
-                        // delete content
-                        fs.unlink(content.file, deletionError => {
-                            if (deletionError) {
-                                logger.error(`Unable to delete file ${content.file}!`);
-                            } else {
-                                logger.caching(`File ${content.contentSrc} deleted from local master storage.`);
-                            }
-                        });
-                    }
+            // 2. Construct object array of NodeStatistics
+            const nodeStatistics: NodeStatistics[] = [];
+            const onlineNodes = db
+                .nodes()
+                .find({ status: NodeStatus.online })
+                .filter(node => node.connections.webrtc.checkStatus === "succeeded");
+            for (const onlineNode of onlineNodes) {
+                const loadDownload =
+                    onlineNode.loadDownload != null && onlineNode.bandwidthDownload != null
+                        ? onlineNode.bandwidthDownload / (onlineNode.loadDownload + 1)
+                        : 0;
+                const loadUpload =
+                    onlineNode.loadUpload != null && onlineNode.bandwidthUpload != null
+                        ? onlineNode.bandwidthUpload / (onlineNode.loadUpload + 1)
+                        : 0;
+                const contentsCaching = db.nodesContent().find({ nodeId: onlineNode.nodeId, status: "caching" });
+                const contentsCachingSize = await Helpers.getContentsSize(contentsCaching);
+                const contentsDone = db.nodesContent().find({ nodeId: onlineNode.nodeId, status: "done" });
+                const contentsToRemoveSize = await Helpers.getRemovableContentsSize(contentsDone);
+                const usableSize = onlineNode.storage.available - contentsCachingSize;
+                nodeStatistics.push({
+                    nodeId: onlineNode.nodeId,
+                    latitude: onlineNode.location.latitude,
+                    longitude: onlineNode.location.longitude,
+                    healthScore: onlineNode.healthScore,
+                    loadDownload: loadDownload,
+                    loadUpload: loadUpload,
+                    storageUsable: usableSize + contentsToRemoveSize,
+                    distance: Infinity,
+                    rank: 0
                 });
             }
+
+            // 3. Initialize internal load and storage counters
+            const onlineNodesLoadUp: LoadCounter = {};
+            for (let j = 0; j < onlineNodes.length; j++) {
+                onlineNodesLoadUp[onlineNodes[j].nodeId] = 0;
+            }
+            const onlineNodesLoadDw: LoadCounter = {};
+            for (let j = 0; j < onlineNodes.length; j++) {
+                onlineNodesLoadDw[onlineNodes[j].nodeId] = 0;
+            }
+
+            // 4. For every content that needs to be scaled up, run smart caching procedure
+            for (const content of contents) {
+                if (content.scaleDiff != null && content.scaleDiff > scaleEpsilon) {
+                    logger.debug(`Processing content ${content.contentSrc} with number of scale difference ${content.scaleDiff}`);
+                    // 5. Get centroids of clustered demand locations, sorted in descending order by cluster size. Note: Optics clustering
+                    //    algorithm is used, since: 1) it is density based, 2) supports geodedic distance function, 3) returns outliers
+                    const locationCentroids = await contentManager.estimateLocality(content.contentId);
+
+                    // 6. Preprocess centroids to match scale differentials
+                    let useLocality = true;
+                    let centroids = new Array<CentroidObject>();
+                    logger.debug(`Processing content ${content.contentSrc} with number of centroids ${locationCentroids.length}`);
+                    if (locationCentroids.length === 0) {
+                        logger.error(`There's no locality data for ${content.contentSrc}. Smart caching will continue without locality.`);
+                        useLocality = false;
+                        centroids.push({ latitude: 0, longitude: 0 }); // NOTE: this centroid will not be used, it is only a placeholder
+                    } else {
+                        const locationCount = locationCentroids.map(c => c.count).reduce((p, c) => p + c);
+                        const m = Math.ceil(content.scaleDiff / locationCount);
+                        centroids = new Array<CentroidObject>(locationCount * m);
+                        let i = 0;
+                        for (let j = 0; j < locationCentroids.length; j++) {
+                            const step = locationCentroids[j].count * m;
+                            centroids.fill(
+                                { latitude: locationCentroids[j].latitude, longitude: locationCentroids[j].longitude },
+                                i,
+                                i + step
+                            );
+                            i += step;
+                        }
+                    }
+
+                    // 7. Separate content owners (potential uploaders) and potential downloaders
+                    const contentOwnersIds = db
+                        .nodesContent()
+                        .find({ contentId: content.contentId, status: "done" })
+                        .map(nodeContent => nodeContent.nodeId);
+                    const contentOwnersCachingIds = db
+                        .nodesContent()
+                        .find({ contentId: content.contentId, status: "caching" })
+                        .map(nodeContent => nodeContent.nodeId);
+                    const owners: NodeStatistics[] = [];
+                    const nonowners: NodeStatistics[] = [];
+                    nodeStatistics.forEach(nodeStat => {
+                        if (contentOwnersCachingIds.indexOf(nodeStat.nodeId) === -1) {
+                            if (contentOwnersIds.indexOf(nodeStat.nodeId) === -1) {
+                                nonowners.push(nodeStat);
+                            } else {
+                                owners.push(nodeStat);
+                            }
+                        }
+                    });
+
+                    // 8. Sort by multiple statistics
+                    const nonownersRankHealth = this.sortStatistics(nonowners, StatisticType.healthScore, SortOrder.desc);
+                    const nonownersRankLoadDw = this.sortStatistics(nonowners, StatisticType.loadDonwload, SortOrder.asc);
+                    const nonownersRankStorage = this.sortStatistics(nonowners, StatisticType.storageUsable, SortOrder.desc);
+                    let nonownersRankDistance = new Array<MapObject>(nonowners.length);
+                    const ownersRankHealth = this.sortStatistics(owners, StatisticType.healthScore, SortOrder.desc);
+                    const ownersRankLoadUp = this.sortStatistics(owners, StatisticType.loadUpload, SortOrder.asc);
+                    let ownersRankDistance = new Array<MapObject>(owners.length);
+
+                    // 9. Run downloader and uploader selection procedure
+                    let additionalScaling = content.scaleDiff;
+                    let centroidPrevious = null;
+                    while (additionalScaling > scaleEpsilon && nonowners.length > 0) {
+                        const contentSize = content.contentSize;
+                        // 10. If necessary, recalculate distances from centroid
+                        const centroid = centroids.shift(); // for no-locality case, only the first time we get centroid, later null
+                        if (centroid === centroidPrevious) {
+                            // do nothing
+                        } else if (centroid != null) {
+                            if (useLocality === true && centroid != null) {
+                                this.calculateDistances(nonowners, centroid);
+                                nonownersRankDistance = this.sortStatistics(nonowners, StatisticType.distance, SortOrder.asc);
+                                ownersRankDistance = this.sortStatistics(owners, StatisticType.distance, SortOrder.asc);
+                                centroidPrevious = centroid;
+                            }
+
+                            // 11. Calculate aggregate score (rank) of nonowner and owner nodes, sort them in ascending order by this rank
+                            const downloaderRankWeights = this.getDownloaderRankWeights();
+                            nonowners.forEach(async (noItem, k, noArray) => {
+                                let rankDistance: MapObject[] = [{ index: 0, value: 0 }];
+                                if (useLocality === true) {
+                                    rankDistance = nonownersRankDistance.filter(mapObject => mapObject.index === k);
+                                }
+                                const rankHealth = nonownersRankHealth.filter(mapObject => mapObject.index === k);
+                                const rankLoadDw = nonownersRankLoadDw.filter(mapObject => mapObject.index === k);
+                                const rankStorage = nonownersRankStorage.filter(mapObject => mapObject.index === k);
+                                noArray[k].rank =
+                                    downloaderRankWeights.distance * rankDistance[0].value +
+                                    downloaderRankWeights.healthScore * rankHealth[0].value +
+                                    downloaderRankWeights.load * rankLoadDw[0].value +
+                                    downloaderRankWeights.storage * rankStorage[0].value;
+                            });
+                            nonowners.sort(this.sortFunctionGeneratorStatistics(StatisticType.rank, SortOrder.asc));
+
+                            const uploaderRankWeights = this.getUploaderRankWeights();
+                            owners.forEach(async (oItem, k, oArray) => {
+                                let rankDistance: MapObject[] = [{ index: 0, value: 0 }];
+                                if (useLocality === true) {
+                                    rankDistance = ownersRankDistance.filter(mapObject => mapObject.index === k);
+                                }
+                                const rankHealth = ownersRankHealth.filter(mapObject => mapObject.index === k);
+                                const rankLoadUp = ownersRankLoadUp.filter(mapObject => mapObject.index === k);
+                                oArray[k].rank =
+                                    uploaderRankWeights.distance * rankDistance[0].value +
+                                    uploaderRankWeights.healthScore * rankHealth[0].value +
+                                    uploaderRankWeights.load * rankLoadUp[0].value;
+                            });
+                            owners.sort(this.sortFunctionGeneratorStatistics(StatisticType.rank, SortOrder.asc));
+                        }
+
+                        // 12. Select the downloader node
+                        let nodeTo = null;
+                        while (nodeTo == null && nonowners.length > 0) {
+                            nodeTo = nonowners.shift();
+                            if (nodeTo != null) {
+                                const nodeToLoad = nodeTo.loadDownload;
+                                if (nodeToLoad < loadBound) {
+                                    logger.warn(`${nodeTo.nodeId} has too low bandwidth at ${nodeToLoad} per download`);
+                                    nodeTo = null;
+                                    continue;
+                                } else if (nodeTo.storageUsable < contentSize) {
+                                    logger.warn(
+                                        // tslint:disable-next-line:max-line-length
+                                        `${nodeTo.nodeId} does not have enough usable storage ${nodeTo.storageUsable} for file of ${contentSize}`
+                                    );
+                                    nodeTo = null;
+                                    continue;
+                                }
+                            }
+                        }
+
+                        // 13. Select the uploader node
+                        let nodeFrom = null;
+                        while (nodeFrom == null && owners.length > 0) {
+                            nodeFrom = owners.shift();
+                            if (nodeFrom != null) {
+                                const nodeToLoad = nodeFrom.loadUpload;
+                                if (nodeToLoad < loadBound) {
+                                    logger.warn(`${nodeFrom.nodeId} has too low bandwidth at ${nodeToLoad} per upload`);
+                                    nodeFrom = null;
+                                    continue;
+                                } else {
+                                    owners.push(nodeFrom); // with enough upload bandwidth it can upload content more times
+                                }
+                            }
+                        }
+
+                        // 14. Push new caching job into the job queue
+                        if (nodeTo != null && nodeFrom != null) {
+                            contentManager.queueCaching(content.contentSrc, nodeTo.nodeId, nodeFrom.nodeId);
+                            logger.caching(
+                                `Content ${content.contentSrc} pushed into caching queue from node ${nodeFrom.nodeId} to node ${nodeTo.nodeId}.`
+                            );
+                            additionalScaling--;
+
+                            // 15. Update load and storage statistics of selected nodes
+                            const nodeToId = nodeTo.nodeId;
+                            onlineNodesLoadDw[nodeToId]++;
+                            this.updateLoad(nodeToId, nodeStatistics, onlineNodes, onlineNodesLoadDw, LoadType.down);
+                            nodeStatistics[nodeStatistics.findIndex(stat => stat.nodeId === nodeToId)].storageUsable -= content.contentSize;
+
+                            const nodeFromId = nodeFrom.nodeId;
+                            onlineNodesLoadUp[nodeFromId]++;
+                            this.updateLoad(nodeFromId, nodeStatistics, onlineNodes, onlineNodesLoadUp, LoadType.up);
+                        } else if (nodeTo != null && nodeFrom == null) {
+                            contentManager.queueCaching(content.contentSrc, nodeTo.nodeId, null);
+                            logger.caching(
+                                `Content ${content.contentSrc} pushed into caching queue from Master node to node ${nodeTo.nodeId}.`
+                            );
+                            additionalScaling--;
+
+                            // 15. Update load and storage statistics of selected nodes
+                            const nodeToId = nodeTo.nodeId;
+                            onlineNodesLoadDw[nodeToId]++;
+                            this.updateLoad(nodeToId, nodeStatistics, onlineNodes, onlineNodesLoadDw, LoadType.down);
+                            nodeStatistics[nodeStatistics.findIndex(stat => stat.nodeId === nodeToId)].storageUsable -= content.contentSize;
+                        }
+                    }
+                } else if (content.scaleDiff != null && content.scaleTarget != null && content.scaleTarget >= 1 && content.scaleDiff <= 0) {
+                    // Check if file is still master storage. If yes, delete it from master storage
+                    fs.access(content.file, fs.constants.F_OK, existanceError => {
+                        if (existanceError) {
+                            // do nothing
+                        } else {
+                            // delete content
+                            fs.unlink(content.file, deletionError => {
+                                if (deletionError) {
+                                    logger.error(`Unable to delete file ${content.file}!`);
+                                } else {
+                                    logger.caching(`File ${content.contentSrc} deleted from local master storage.`);
+                                }
+                            });
+                        }
+                    });
+                }
+            }
+        } catch (err) {
+            logger.error(err);
         }
 
         logger.caching(`Caching procedure finished in ${Helpers.datetime.time(cachingStartTimestamp)} seconds.`);

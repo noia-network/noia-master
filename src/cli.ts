@@ -518,57 +518,61 @@ export function cli(master: Master): void {
                 }
                 // tslint:disable-next-line
                 async function connectToNode(host: string, port: number, secretKey: string | null): Promise<void> {
-                    // Uncomment and modify for testing purposes.
-                    // host = "192.168.0.104";
-                    const peerAddress = `http://${host}:${port}`;
-                    console.info(`Connecting (WebRTC) to address ${peerAddress}.`);
-                    const client = new WebRtcDirect.Client(peerAddress, {
-                        wrtc: wrtc,
-                        candidateIp: config.get(ConfigOption.MasterIp)
-                    });
-                    await client.connect();
-                    // await client.stop();
-                    CliHelpers.log(`Connected to node node-address=${peerAddress}.`);
-                    const responseData = response.data;
-                    if (responseData == null) {
-                        logger.error(response.status, response.error);
-                        return;
-                    }
-                    responseData.metadata.piecesIntegrity.forEach((pieceIntegrity: string, pieceIndex: number) => {
-                        setTimeout(() => {
-                            client.send(
-                                JSON.stringify({
-                                    contentId: responseData.metadata.contentId,
-                                    index: pieceIndex,
-                                    offset: 0
-                                })
-                            );
-                        }, pieceIndex * 500);
-                    });
-                    // @ts-ignore
-                    client.on("data", (buffer: ArrayBuffer) => {
-                        // @ts-ignore
-                        const content: ContentResponse = ContentResponseProtobuf.decode(new Uint8Array(buffer));
-
-                        if (content.status === 200 && content.data != null) {
-                            CliHelpers.log(
-                                `Node responded with status=${content.status}, data was-encrypted=${config.get(
-                                    ConfigOption.ContentEncryptionIsEnabled
-                                )}: content-id=${content.data.contentId}, index=${content.data.index} offset=${
-                                    content.data.offset
-                                } buffer-length=${content.data.buffer.length}, is-integrity-valid=${responseData.metadata.piecesIntegrity[
-                                    content.data.index
-                                ] === sha1(CliHelpers.getPieceDataWebRtc(secretKey, content))}, sha1-before-decryption=${sha1(
-                                    Buffer.from(content.data.buffer)
-                                )} secret-key=${secretKey}.`
-                            );
-                        } else {
-                            CliHelpers.log(`Node responded with an error status=${content.status} error='${content.error}'.`);
+                    try {
+                        // Uncomment and modify for testing purposes.
+                        // host = "192.168.0.104";
+                        const peerAddress = `http://${host}:${port}`;
+                        console.info(`Connecting (WebRTC) to address ${peerAddress}.`);
+                        const client = new WebRtcDirect.Client(peerAddress, {
+                            wrtc: wrtc,
+                            candidateIp: config.get(ConfigOption.MasterIp)
+                        });
+                        await client.connect();
+                        // await client.stop();
+                        CliHelpers.log(`Connected to node node-address=${peerAddress}.`);
+                        const responseData = response.data;
+                        if (responseData == null) {
+                            logger.error(response.status, response.error);
+                            return;
                         }
-                    });
-                    setTimeout(async () => {
-                        await client.stop();
-                    }, responseData.metadata.piecesIntegrity.length * 500);
+                        responseData.metadata.piecesIntegrity.forEach((pieceIntegrity: string, pieceIndex: number) => {
+                            setTimeout(() => {
+                                client.send(
+                                    JSON.stringify({
+                                        contentId: responseData.metadata.contentId,
+                                        index: pieceIndex,
+                                        offset: 0
+                                    })
+                                );
+                            }, pieceIndex * 500);
+                        });
+                        // @ts-ignore
+                        client.on("data", (buffer: ArrayBuffer) => {
+                            // @ts-ignore
+                            const content: ContentResponse = ContentResponseProtobuf.decode(new Uint8Array(buffer));
+
+                            if (content.status === 200 && content.data != null) {
+                                CliHelpers.log(
+                                    `Node responded with status=${content.status}, data was-encrypted=${config.get(
+                                        ConfigOption.ContentEncryptionIsEnabled
+                                    )}: content-id=${content.data.contentId}, index=${content.data.index} offset=${
+                                        content.data.offset
+                                    } buffer-length=${content.data.buffer.length}, is-integrity-valid=${responseData.metadata
+                                        .piecesIntegrity[content.data.index] ===
+                                        sha1(CliHelpers.getPieceDataWebRtc(secretKey, content))}, sha1-before-decryption=${sha1(
+                                        Buffer.from(content.data.buffer)
+                                    )} secret-key=${secretKey}.`
+                                );
+                            } else {
+                                CliHelpers.log(`Node responded with an error status=${content.status} error='${content.error}'.`);
+                            }
+                        });
+                        setTimeout(async () => {
+                            await client.stop();
+                        }, responseData.metadata.piecesIntegrity.length * 500);
+                    } catch (err) {
+                        logger.error(err);
+                    }
                 }
             }
         });

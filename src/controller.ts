@@ -74,6 +74,8 @@ export class Controller {
                 );
                 resolve();
             });
+        }).catch(err => {
+            logger.error("Setup err:", err);
         });
     }
 }

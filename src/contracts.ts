@@ -85,22 +85,6 @@ export interface Node {
         available: number;
         total: number;
     };
-    tokens?: number;
-    uploaded?: number;
-    downloaded?: number;
-    /**
-     * Current session uptime.
-     */
-    uptime: number;
-    airdropAddress: string | null;
-    bandwidthDownload: number;
-    bandwidthUpload: number;
-    loadDownload: number;
-    loadUpload: number;
-    healthScore: number;
-    distance?: number;
-    latency?: number;
-    lastWorkOrder: string | null;
     system: {
         distro?: string;
         deviceType?: string;
@@ -123,6 +107,22 @@ export interface Node {
         pingIpv6?: boolean;
         interfacesLength: number;
     };
+    tokens?: number;
+    uploaded?: number;
+    downloaded?: number;
+    /**
+     * Current session uptime.
+     */
+    uptime: number;
+    airdropAddress: string | null;
+    bandwidthDownload: number;
+    bandwidthUpload: number;
+    loadDownload: number;
+    loadUpload: number;
+    healthScore: number;
+    distance?: number;
+    latency?: number;
+    lastWorkOrder: string | null;
 }
 
 export interface Candidate {
