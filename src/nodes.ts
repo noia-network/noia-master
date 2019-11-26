@@ -77,14 +77,18 @@ export class Nodes {
     public contentManager: ContentManager;
 
     public async connect(ws: WebSocket, req: http.IncomingMessage): Promise<void> {
-        if (config.get(ConfigOption.BlockchainIsEnabled)) {
-            try {
-                this.wireSetup(ws, req);
-            } catch (err) {
-                logger.error("Error:", err);
+        try {
+            if (config.get(ConfigOption.BlockchainIsEnabled)) {
+                try {
+                    await this.wireSetup(ws, req);
+                } catch (err) {
+                    logger.error("Error:", err);
+                }
+            } else {
+                await this.wireSetup(ws, req);
             }
-        } else {
-            this.wireSetup(ws, req);
+        } catch (err) {
+            logger.error(err);
         }
     }
 
@@ -203,26 +207,35 @@ export class Nodes {
         }
 
         async function checkLifetime(): Promise<void> {
-            if (config.get(ConfigOption.DataClusterCheckNodeOnline)) {
-                const isNodeAliveInCluster: boolean = await dataCluster.isAlive({
-                    minutesOffline: 15,
-                    timestamp: Date.now(),
-                    nodeId: Helpers.getNodeUid(wire.getRemoteMetadata())
-                });
-                if (isNodeAliveInCluster) {
-                    const msg = `Node failed to connect, since node with same node-id=${
-                        wire.getRemoteMetadata().nodeId
-                    } is already connected to cluster.`;
-                    wire.close(1002, msg);
-                    logger.warn(msg);
-                    return;
+            try {
+                if (config.get(ConfigOption.DataClusterCheckNodeOnline)) {
+                    const isNodeAliveInCluster: boolean = await dataCluster.isAlive({
+                        minutesOffline: 15,
+                        timestamp: Date.now(),
+                        nodeId: Helpers.getNodeUid(wire.getRemoteMetadata())
+                    });
+                    if (isNodeAliveInCluster) {
+                        const msg = `Node failed to connect, since node with same node-id=${
+                            wire.getRemoteMetadata().nodeId
+                        } is already connected to cluster.`;
+                        wire.close(1002, msg);
+                        logger.warn(msg);
+                        return;
+                    }
                 }
+            } catch (err) {
+                logger.error("Error in isNodeAliveInCluster:", err);
             }
-            dataCluster.registerLifetime(Helpers.getNodeUid(wire.getRemoteMetadata()), (onDisconnect, uptime) => {
-                wire.on("closed", onDisconnect);
-                wire.on("error", onDisconnect);
-                wire.uptime = uptime;
-            });
+
+            try {
+                dataCluster.registerLifetime(Helpers.getNodeUid(wire.getRemoteMetadata()), (onDisconnect, uptime) => {
+                    wire.on("closed", onDisconnect);
+                    wire.on("error", onDisconnect);
+                    wire.uptime = uptime;
+                });
+            } catch (err) {
+                logger.error("Error in dataCluster.registerLifetime:", err);
+            }
         }
         checkLifetime();
 
@@ -367,7 +380,7 @@ export class Nodes {
                         uploaded: uploaded.bytesCount
                     });
                 } catch (err) {
-                    logger.warn(`Failed to send statistics to node node-id=${Helpers.getNodeUid(wire.getRemoteMetadata())}, error:`, err);
+                    logger.error(`Failed to send statistics to node node-id=${Helpers.getNodeUid(wire.getRemoteMetadata())}, error:`, err);
                 }
             }
         }
@@ -655,23 +668,27 @@ export class Nodes {
             }
         });
 
-        if (isExistingNode) {
-            node.connectedAt = Helpers.datetime.time();
-            db.nodes().update(node);
-        } else {
-            node.ip = wire.getLocalMetadata().externalIp;
-            node.uploaded = 0;
-            node.tokens = 0;
-            node.storage = {
-                used: 0,
-                available: 0,
-                total: 0
-            };
-            node.latency = 0;
-            node.bandwidthUpload = 0;
-            node.bandwidthDownload = 0;
+        try {
+            if (isExistingNode) {
+                node.connectedAt = Helpers.datetime.time();
+                db.nodes().update(node);
+            } else {
+                node.ip = wire.getLocalMetadata().externalIp;
+                node.uploaded = 0;
+                node.tokens = 0;
+                node.storage = {
+                    used: 0,
+                    available: 0,
+                    total: 0
+                };
+                node.latency = 0;
+                node.bandwidthUpload = 0;
+                node.bandwidthDownload = 0;
 
-            db.nodes().insert(node);
+                db.nodes().insert(node);
+            }
+        } catch (err) {
+            logger.error("Failed to get node information:", err);
         }
 
         const connections = wire.getRemoteMetadata().connections;
@@ -725,8 +742,8 @@ export class Nodes {
                 pingIpv6: !!systemDataEvent.data.pingIpv6,
                 interfacesLength: systemDataEvent.data.interfacesLength ? parseInt(systemDataEvent.data.interfacesLength.toString()) : 0
             };
-        } catch (error) {
-            logger.error(error);
+        } catch (err) {
+            logger.error("Failed to send system data:", err);
         }
 
         dataCluster.system({
@@ -781,18 +798,22 @@ export class Nodes {
             toNodeId = findNode[k].nodeId;
         }
 
-        dataCluster.ping({
-            nodeId: Helpers.getNodeUid(node),
-            toNodeId: toNodeId,
-            timestamp: Date.now(),
-            host: pingDataEvent.data.host == null ? "" : String(pingDataEvent.data.host),
-            time: pingDataEvent.data.time ? pingDataEvent.data.time : 0,
-            min: pingDataEvent.data.min ? pingDataEvent.data.min : 0,
-            max: pingDataEvent.data.max ? pingDataEvent.data.max : 0,
-            avg: pingDataEvent.data.avg ? pingDataEvent.data.avg : 0,
-            ipv4: node.system.ipv4,
-            ipv6: node.system.ipv6
-        });
+        try {
+            dataCluster.ping({
+                nodeId: Helpers.getNodeUid(node),
+                toNodeId: toNodeId,
+                timestamp: Date.now(),
+                host: pingDataEvent.data.host == null ? "" : String(pingDataEvent.data.host),
+                time: pingDataEvent.data.time ? pingDataEvent.data.time : 0,
+                min: pingDataEvent.data.min ? pingDataEvent.data.min : 0,
+                max: pingDataEvent.data.max ? pingDataEvent.data.max : 0,
+                avg: pingDataEvent.data.avg ? pingDataEvent.data.avg : 0,
+                ipv4: node.system.ipv4,
+                ipv6: node.system.ipv6
+            });
+        } catch (err) {
+            logger.error("Failed to send ping data:", err);
+        }
 
         db.nodes().update(node);
     }
@@ -1030,11 +1051,17 @@ export class Nodes {
             }, 60 * 60 * 1000);
         }
 
-        if (0 > this.stores[file.file].lastChunkIndex || this.stores[file.file].lastChunkIndex < info.data.piece) {
-            // TODO: Forward error to node so node can fix its metadata.
-            return logger.warn(
-                `Node node-id=${wire.getRemoteMetadata().nodeId} file=${file.file} requested out of range piece-index=${info.data.piece}.`
-            );
+        try {
+            if (0 > this.stores[file.file].lastChunkIndex || this.stores[file.file].lastChunkIndex < info.data.piece) {
+                // TODO: Forward error to node so node can fix its metadata.
+                return logger.warn(
+                    `Node node-id=${wire.getRemoteMetadata().nodeId} file=${file.file} requested out of range piece-index=${
+                        info.data.piece
+                    }.`
+                );
+            }
+        } catch (err) {
+            logger.error("On requested metadata error:", err);
         }
 
         this.stores[file.file].get(info.data.piece, (err: Error, dataBuf: Buffer) => {
@@ -1086,28 +1113,32 @@ export class Nodes {
         const node = db.nodes().findOne({ nodeId: wire.getRemoteMetadata().nodeId });
         const rows = db.nodesContent().find({ nodeId: wire.getRemoteMetadata().nodeId });
 
-        let uptime = 0;
+        try {
+            let uptime = 0;
 
-        // Setting up nodes status offline
-        if (node) {
-            node.status = NodeStatus.offline;
-            node.loadDownload = 0;
-            node.loadUpload = 0;
-            node.disconnectedAt = Helpers.datetime.time();
+            // Setting up nodes status offline
+            if (node) {
+                node.status = NodeStatus.offline;
+                node.loadDownload = 0;
+                node.loadUpload = 0;
+                node.disconnectedAt = Helpers.datetime.time();
 
-            uptime = Helpers.datetime.timeDiff(node.disconnectedAt, node.connectedAt);
+                uptime = Helpers.datetime.timeDiff(node.disconnectedAt, node.connectedAt);
 
-            node.uptime = node.uptime + uptime;
+                node.uptime = node.uptime + uptime;
 
-            db.nodes().update(node);
+                db.nodes().update(node);
 
-            logger.info(
-                `Node node-id=${wire.getRemoteMetadata().nodeId} disconnected: node-ip=${
-                    wire.getLocalMetadata().externalIp
-                }, node-uptime=${uptime}s, node-total-uptime=${Helpers.datetime.secondsToString(node.uptime)}.`
-            );
-        } else {
-            logger.warn(`Node node-id=${wire.getRemoteMetadata().nodeId} disconnect (unexpected error).`);
+                logger.info(
+                    `Node node-id=${wire.getRemoteMetadata().nodeId} disconnected: node-ip=${
+                        wire.getLocalMetadata().externalIp
+                    }, node-uptime=${uptime}s, node-total-uptime=${Helpers.datetime.secondsToString(node.uptime)}.`
+                );
+            } else {
+                logger.warn(`Node node-id=${wire.getRemoteMetadata().nodeId} disconnect (unexpected error).`);
+            }
+        } catch (err) {
+            logger.error("Nodes status offline:", err);
         }
 
         const timer = this._wires[wire.getRemoteMetadata().nodeId].pingPong;
@@ -1285,21 +1316,25 @@ export class Nodes {
     }
 
     public checkWs(wire: ExtendedWireTypes, ip: string, port: number): void {
-        const ws: WebSocket = new WebSocket(`ws://${ip}:${port}`);
-        ws.onopen = () => {
-            ws.close();
-            updateNodeStatus(wire.getRemoteMetadata().nodeId, "succeeded");
-        };
-        ws.onerror = () => {
-            updateNodeStatus(wire.getRemoteMetadata().nodeId, "failed");
-            const msg = `WS connection failed. Port ${port} or IP ${ip} might be unreachable.`;
-            wire.warning(msg);
-            logger.info(
-                `Node node-id=${wire.getRemoteMetadata().nodeId} received warning: node-ip=${
-                    wire.getLocalMetadata().externalIp
-                } msg='${msg}'`
-            );
-        };
+        try {
+            const ws: WebSocket = new WebSocket(`ws://${ip}:${port}`);
+            ws.onopen = () => {
+                ws.close();
+                updateNodeStatus(wire.getRemoteMetadata().nodeId, "succeeded");
+            };
+            ws.onerror = () => {
+                updateNodeStatus(wire.getRemoteMetadata().nodeId, "failed");
+                const msg = `WS connection failed. Port ${port} or IP ${ip} might be unreachable.`;
+                wire.warning(msg);
+                logger.info(
+                    `Node node-id=${wire.getRemoteMetadata().nodeId} received warning: node-ip=${
+                        wire.getLocalMetadata().externalIp
+                    } msg='${msg}'`
+                );
+            };
+        } catch (err) {
+            logger.error("Unexpected error on checkWs:", err);
+        }
 
         function updateNodeStatus(nodeId: string, status: "failed" | "succeeded" | "not-checked"): void {
             const node = db.nodes().findOne({ nodeId: nodeId });
@@ -1311,25 +1346,29 @@ export class Nodes {
     }
 
     public checkWss(wire: ExtendedWireTypes, domain: string | undefined, port: number): void {
-        const msg = `WSS connection failed. Port ${port} or domain ${domain} might be unreachable.`;
-        if (domain == null) {
-            failed();
-            return;
-        }
-        const ws: WebSocket = new WebSocket(`wss://${domain}:${port}`);
-        ws.onopen = () => {
-            ws.close();
-            updateNodeStatus(wire.getRemoteMetadata().nodeId, "succeeded");
-        };
-        ws.onerror = () => {
-            failed();
-        };
-        function failed(): void {
-            updateNodeStatus(wire.getRemoteMetadata().nodeId, "failed");
-            wire.warning(msg);
-            logger.info(
-                `Sent warning to node-id=${wire.getRemoteMetadata().nodeId} node-ip=${wire.getLocalMetadata().externalIp} msg='${msg}'`
-            );
+        try {
+            const msg = `WSS connection failed. Port ${port} or domain ${domain} might be unreachable.`;
+            if (domain == null) {
+                failed();
+                return;
+            }
+            const ws: WebSocket = new WebSocket(`wss://${domain}:${port}`);
+            ws.onopen = () => {
+                ws.close();
+                updateNodeStatus(wire.getRemoteMetadata().nodeId, "succeeded");
+            };
+            ws.onerror = () => {
+                failed();
+            };
+            function failed(): void {
+                updateNodeStatus(wire.getRemoteMetadata().nodeId, "failed");
+                wire.warning(msg);
+                logger.info(
+                    `Sent warning to node-id=${wire.getRemoteMetadata().nodeId} node-ip=${wire.getLocalMetadata().externalIp} msg='${msg}'`
+                );
+            }
+        } catch (err) {
+            logger.error("Unexpected error on checkWss:", err);
         }
 
         function updateNodeStatus(nodeId: string, status: "failed" | "succeeded" | "not-checked"): void {

@@ -89,8 +89,12 @@ export class ContentManager extends ContentManagerEmitter {
     private downloadQueue: string[] = [];
 
     public async setup(): Promise<void> {
-        await fs.ensureDir(this.settings.dir.storage);
-        await fs.ensureDir(this.settings.dir.content);
+        try {
+            await fs.ensureDir(this.settings.dir.storage);
+            await fs.ensureDir(this.settings.dir.content);
+        } catch (err) {
+            logger.error(err);
+        }
     }
 
     public getProtocol(data: string): Protocol {
@@ -131,63 +135,67 @@ export class ContentManager extends ContentManagerEmitter {
     }
 
     public async estimateScale(): Promise<void> {
-        db.contentPopularity().prune(this.getTimeWindow());
-        const initialCopies = config.get(ConfigOption.CachingInitialCopies);
-        const nContent = db.files().data.length;
-        const onlineNodes = db.nodes().find({ status: { $eq: NodeStatus.online } });
-        let maxScale = onlineNodes.filter(node => node.connections.webrtc.checkStatus === "succeeded").length;
-        let totalNetworkStorage = 0;
-        db.nodes().data.forEach(node => {
-            totalNetworkStorage += node.storage.total;
-        });
-        // pre-allocate variables
-        const contentSizeArray = new Array<number>(nContent);
-        const popularityArray = new Array<number>(nContent);
-        const scaleActualArray = new Array<number>(nContent);
-        const scaleTargetArray = new Array<number>(nContent);
-        const scaleDiffArray = new Array<number>(nContent);
-        // retrieve content copularity and actual scale (including pending m2n/n2n downloads)
-        let fileIndex = 0;
-        db.files().data.forEach(file => {
-            contentSizeArray[fileIndex] = file.contentSize;
-            popularityArray[fileIndex] = db.contentPopularity().contentScore(file.contentId);
-            scaleActualArray[fileIndex] = db.nodesContent().count({ contentId: file.contentId });
-            fileIndex++;
-        });
-        // estimate target scale
-        const maxPopularity = this.arrayMax(popularityArray);
-        let maxStorageUsed = Infinity;
-        while (maxStorageUsed > totalNetworkStorage) {
-            const popToScaleFactor = maxScale / maxPopularity;
-            maxStorageUsed = 0;
-            for (let i = 0; i < nContent; i++) {
-                if (contentSizeArray[i] && popularityArray[i] != null && popularityArray[i] > 0) {
-                    scaleTargetArray[i] = Math.max(Math.round(popToScaleFactor * popularityArray[i]), initialCopies);
-                    maxStorageUsed += scaleTargetArray[i] * contentSizeArray[i];
-                } else {
-                    scaleTargetArray[i] = 0;
+        try {
+            db.contentPopularity().prune(this.getTimeWindow());
+            const initialCopies = config.get(ConfigOption.CachingInitialCopies);
+            const nContent = db.files().data.length;
+            const onlineNodes = db.nodes().find({ status: { $eq: NodeStatus.online } });
+            let maxScale = onlineNodes.filter(node => node.connections.webrtc.checkStatus === "succeeded").length;
+            let totalNetworkStorage = 0;
+            db.nodes().data.forEach(node => {
+                totalNetworkStorage += node.storage.total;
+            });
+            // pre-allocate variables
+            const contentSizeArray = new Array<number>(nContent);
+            const popularityArray = new Array<number>(nContent);
+            const scaleActualArray = new Array<number>(nContent);
+            const scaleTargetArray = new Array<number>(nContent);
+            const scaleDiffArray = new Array<number>(nContent);
+            // retrieve content copularity and actual scale (including pending m2n/n2n downloads)
+            let fileIndex = 0;
+            db.files().data.forEach(file => {
+                contentSizeArray[fileIndex] = file.contentSize;
+                popularityArray[fileIndex] = db.contentPopularity().contentScore(file.contentId);
+                scaleActualArray[fileIndex] = db.nodesContent().count({ contentId: file.contentId });
+                fileIndex++;
+            });
+            // estimate target scale
+            const maxPopularity = this.arrayMax(popularityArray);
+            let maxStorageUsed = Infinity;
+            while (maxStorageUsed > totalNetworkStorage) {
+                const popToScaleFactor = maxScale / maxPopularity;
+                maxStorageUsed = 0;
+                for (let i = 0; i < nContent; i++) {
+                    if (contentSizeArray[i] && popularityArray[i] != null && popularityArray[i] > 0) {
+                        scaleTargetArray[i] = Math.max(Math.round(popToScaleFactor * popularityArray[i]), initialCopies);
+                        maxStorageUsed += scaleTargetArray[i] * contentSizeArray[i];
+                    } else {
+                        scaleTargetArray[i] = 0;
+                    }
+                }
+                maxScale--;
+                if (maxScale < 0) {
+                    break;
                 }
             }
-            maxScale--;
-            if (maxScale < 0) {
-                break;
-            }
+            // find scale difference and write data to files db
+            fileIndex = 0;
+            db.files().data.forEach(file => {
+                if (scaleTargetArray[fileIndex] != null) {
+                    scaleDiffArray[fileIndex] = scaleTargetArray[fileIndex] - scaleActualArray[fileIndex];
+                } else {
+                    scaleDiffArray[fileIndex] = 0;
+                }
+                file.popularity = popularityArray[fileIndex];
+                file.scaleActual = scaleActualArray[fileIndex];
+                file.scaleTarget = scaleTargetArray[fileIndex];
+                file.scaleDiff = scaleDiffArray[fileIndex];
+                db.files().update(file);
+                fileIndex++;
+            });
+        } catch (err) {
+            logger.error(err);
         }
-        // find scale difference and write data to files db
-        fileIndex = 0;
-        db.files().data.forEach(file => {
-            if (scaleTargetArray[fileIndex] != null) {
-                scaleDiffArray[fileIndex] = scaleTargetArray[fileIndex] - scaleActualArray[fileIndex];
-            } else {
-                scaleDiffArray[fileIndex] = 0;
-            }
-            file.popularity = popularityArray[fileIndex];
-            file.scaleActual = scaleActualArray[fileIndex];
-            file.scaleTarget = scaleTargetArray[fileIndex];
-            file.scaleDiff = scaleDiffArray[fileIndex];
-            db.files().update(file);
-            fileIndex++;
-        });
     }
 
     public geoDistanceWrap(coordinateA: number[], coordinateB: number[]): number {
@@ -330,11 +338,18 @@ export class ContentManager extends ContentManagerEmitter {
     }
 
     public async writeFileToDisk(urlOrContent: string | Buffer, fileUrlOrInfoHash: string): Promise<void> {
-        const fileDir = path.resolve(this.settings.dir.content);
-        const filePath = path.join(fileDir, `${Helpers.getContentIdentifier(fileUrlOrInfoHash)}${this.getExtension(fileUrlOrInfoHash)}`);
-        await fs.ensureDir(fileDir);
-        await fs.writeFile(filePath, urlOrContent);
-        logger.info(`Saved downloaded content to disk: filtered-source=${fileUrlOrInfoHash}, file-path=${filePath}.`);
+        try {
+            const fileDir = path.resolve(this.settings.dir.content);
+            const filePath = path.join(
+                fileDir,
+                `${Helpers.getContentIdentifier(fileUrlOrInfoHash)}${this.getExtension(fileUrlOrInfoHash)}`
+            );
+            await fs.ensureDir(fileDir);
+            await fs.writeFile(filePath, urlOrContent);
+            logger.info(`Saved downloaded content to disk: filtered-source=${fileUrlOrInfoHash}, file-path=${filePath}.`);
+        } catch (err) {
+            logger.error("Error in writeFileToDisk:", err);
+        }
     }
 
     public filterSource(source: string): string {
@@ -394,7 +409,9 @@ export class ContentManager extends ContentManagerEmitter {
             try {
                 if (!skipDownload) {
                     const dataBuffer = await protocols[protocol].download(filteredSource);
-                    await this.writeFileToDisk(dataBuffer, filteredSource);
+                    if (dataBuffer) {
+                        await this.writeFileToDisk(dataBuffer, filteredSource);
+                    }
                     const torrentData = await this.createTorrent(filteredSource);
                     contentData = Object.assign(torrentData, { type: protocol, popularity: 0, scaleDiff: 0 });
                 }
@@ -431,11 +448,15 @@ export class ContentManager extends ContentManagerEmitter {
      * Queue and initiate caching process.
      */
     public async queueCaching(fileUrl: string, nodeId: string | null, fromNodeId: string | null): Promise<void> {
-        if (this.downloadQueue.indexOf(fileUrl) !== -1) {
-            return logger.warn("Downloading is already in progress...");
+        try {
+            if (this.downloadQueue.indexOf(fileUrl) !== -1) {
+                return logger.warn("Downloading is already in progress...");
+            }
+            this.downloadQueue.push(fileUrl);
+            await this.internalDownload(nodeId, fromNodeId);
+        } catch (err) {
+            logger.error(err);
         }
-        this.downloadQueue.push(fileUrl);
-        await this.internalDownload(nodeId, fromNodeId);
     }
 }
 

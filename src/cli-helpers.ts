@@ -3,6 +3,7 @@ import chalk from "chalk";
 import { config, ConfigOption } from "./config";
 import { ContentResponse } from "@noia-network/protocol";
 import { encryption } from "./encryption";
+import { logger } from "./logger";
 
 export namespace CliHelpers {
     export async function onWsOpenPromise(ws: WebSocket): Promise<void> {
@@ -18,9 +19,13 @@ export namespace CliHelpers {
 
     export async function onWsMessage(ws: WebSocket): Promise<string> {
         return new Promise<string>(resolve => {
-            ws.once("message", msg => {
-                resolve(msg as string);
-            });
+            try {
+                ws.once("message", msg => {
+                    resolve(msg as string);
+                });
+            } catch (err) {
+                logger.error("Unexpected onWsMessage:", err);
+            }
         });
     }
 

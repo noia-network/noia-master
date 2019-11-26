@@ -5,6 +5,7 @@ import * as wrtc from "wrtc";
 import * as sha1 from "sha1";
 import * as fs from "fs-extra";
 import * as ping from "ping";
+import * as v8 from "v8";
 import { Wire, ClientRequest, ContentResponse, ClientResponse, NodesFromMaster } from "@noia-network/protocol";
 
 import { CliHelpers } from "./cli-helpers";
@@ -53,16 +54,25 @@ function recursiveCentroidPrinting(centroids: CentroidLocationData[], c: number)
 export function cli(master: Master): void {
     vorpal.command("create-uptimes-csv").action(async args => {
         await fs.ensureFile("nodes.csv");
-        await fs.appendFile("nodes.csv", `nodeId,from,to,uptime\n`);
-        for (const nodeId of getNodesIds()) {
-            const uptime = await dataCluster.uptime({
-                nodeId: nodeId,
-                timestamp: new Date().getTime(),
-                from: 0,
-                to: new Date().getTime()
-            });
-            // @ts-ignore
-            await fs.appendFile("nodes.csv", `${uptime.nodeId},${uptime.from},${uptime.to},${uptime.total}\n`);
+        await fs.appendFile("nodes.csv", `nodeId,airdropAddress,status,days,hours,minutes,seconds,uptime\n`);
+        const query = {};
+        Object.assign(query, { status: NodeStatus.online });
+        const foundNodes = db.nodes().find(query);
+        if (foundNodes != null) {
+            for (const node of foundNodes) {
+                const uptime = await dataCluster.uptime({
+                    nodeId: Helpers.getNodeUid(node),
+                    from: 0,
+                    to: Date.now(),
+                    timestamp: new Date().getTime()
+                });
+                await fs.appendFile(
+                    "nodes.csv",
+                    `${uptime.nodeId},${node.airdropAddress},${node.status},${uptime.days === undefined ? 0 : uptime.days},${
+                        uptime.hours
+                    },${uptime.minutes === undefined ? 0 : uptime.minutes},${uptime.seconds},${uptime.total}\n`
+                );
+            }
         }
     });
 
@@ -158,7 +168,11 @@ export function cli(master: Master): void {
                 minutesOffline: minutesOffline,
                 timestamp: Date.now()
             });
-            CliHelpers.log(`Node-id=${args.nodeId} is-online=${isOnline}.`);
+            if (isOnline === true) {
+                CliHelpers.log(`Node-id=${args.nodeId} is-online=${isOnline}.`);
+            } else {
+                CliHelpers.log(`Node-id=${args.nodeId} is-online=${isOnline} minutes-offline=${minutesOffline}.`);
+            }
         });
 
     vorpal
@@ -504,60 +518,65 @@ export function cli(master: Master): void {
                 }
                 // tslint:disable-next-line
                 async function connectToNode(host: string, port: number, secretKey: string | null): Promise<void> {
-                    // Uncomment and modify for testing purposes.
-                    // host = "192.168.0.104";
-                    const peerAddress = `http://${host}:${port}`;
-                    console.info(`Connecting (WebRTC) to address ${peerAddress}.`);
-                    const client = new WebRtcDirect.Client(peerAddress, {
-                        wrtc: wrtc,
-                        candidateIp: config.get(ConfigOption.MasterIp)
-                    });
-                    await client.connect();
-                    // await client.stop();
-                    CliHelpers.log(`Connected to node node-address=${peerAddress}.`);
-                    const responseData = response.data;
-                    if (responseData == null) {
-                        logger.error(response.status, response.error);
-                        return;
-                    }
-                    responseData.metadata.piecesIntegrity.forEach((pieceIntegrity: string, pieceIndex: number) => {
-                        setTimeout(() => {
-                            client.send(
-                                JSON.stringify({
-                                    contentId: responseData.metadata.contentId,
-                                    index: pieceIndex,
-                                    offset: 0
-                                })
-                            );
-                        }, pieceIndex * 500);
-                    });
-                    // @ts-ignore
-                    client.on("data", (buffer: ArrayBuffer) => {
-                        // @ts-ignore
-                        const content: ContentResponse = ContentResponseProtobuf.decode(new Uint8Array(buffer));
-
-                        if (content.status === 200 && content.data != null) {
-                            CliHelpers.log(
-                                `Node responded with status=${content.status}, data was-encrypted=${config.get(
-                                    ConfigOption.ContentEncryptionIsEnabled
-                                )}: content-id=${content.data.contentId}, index=${content.data.index} offset=${
-                                    content.data.offset
-                                } buffer-length=${content.data.buffer.length}, is-integrity-valid=${responseData.metadata.piecesIntegrity[
-                                    content.data.index
-                                ] === sha1(CliHelpers.getPieceDataWebRtc(secretKey, content))}, sha1-before-decryption=${sha1(
-                                    Buffer.from(content.data.buffer)
-                                )} secret-key=${secretKey}.`
-                            );
-                        } else {
-                            CliHelpers.log(`Node responded with an error status=${content.status} error='${content.error}'.`);
+                    try {
+                        // Uncomment and modify for testing purposes.
+                        // host = "192.168.0.104";
+                        const peerAddress = `http://${host}:${port}`;
+                        console.info(`Connecting (WebRTC) to address ${peerAddress}.`);
+                        const client = new WebRtcDirect.Client(peerAddress, {
+                            wrtc: wrtc,
+                            candidateIp: config.get(ConfigOption.MasterIp)
+                        });
+                        await client.connect();
+                        // await client.stop();
+                        CliHelpers.log(`Connected to node node-address=${peerAddress}.`);
+                        const responseData = response.data;
+                        if (responseData == null) {
+                            logger.error(response.status, response.error);
+                            return;
                         }
-                    });
-                    setTimeout(async () => {
-                        await client.stop();
-                    }, responseData.metadata.piecesIntegrity.length * 500);
+                        responseData.metadata.piecesIntegrity.forEach((pieceIntegrity: string, pieceIndex: number) => {
+                            setTimeout(() => {
+                                client.send(
+                                    JSON.stringify({
+                                        contentId: responseData.metadata.contentId,
+                                        index: pieceIndex,
+                                        offset: 0
+                                    })
+                                );
+                            }, pieceIndex * 500);
+                        });
+                        // @ts-ignore
+                        client.on("data", (buffer: ArrayBuffer) => {
+                            // @ts-ignore
+                            const content: ContentResponse = ContentResponseProtobuf.decode(new Uint8Array(buffer));
+
+                            if (content.status === 200 && content.data != null) {
+                                CliHelpers.log(
+                                    `Node responded with status=${content.status}, data was-encrypted=${config.get(
+                                        ConfigOption.ContentEncryptionIsEnabled
+                                    )}: content-id=${content.data.contentId}, index=${content.data.index} offset=${
+                                        content.data.offset
+                                    } buffer-length=${content.data.buffer.length}, is-integrity-valid=${responseData.metadata
+                                        .piecesIntegrity[content.data.index] ===
+                                        sha1(CliHelpers.getPieceDataWebRtc(secretKey, content))}, sha1-before-decryption=${sha1(
+                                        Buffer.from(content.data.buffer)
+                                    )} secret-key=${secretKey}.`
+                                );
+                            } else {
+                                CliHelpers.log(`Node responded with an error status=${content.status} error='${content.error}'.`);
+                            }
+                        });
+                        setTimeout(async () => {
+                            await client.stop();
+                        }, responseData.metadata.piecesIntegrity.length * 500);
+                    } catch (err) {
+                        logger.error(err);
+                    }
                 }
             }
         });
+
     vorpal
         .command("ping-nodes", "Ping nodes.")
         .option("-n, --nodeId <nodeId>", "Node id.")
@@ -607,6 +626,7 @@ export function cli(master: Master): void {
             }
             CliHelpers.log(`Pinging process begin to ${foundNodes.length} nodes`);
         });
+
     vorpal
         .command(
             `master-ping-nodes`,
@@ -642,9 +662,25 @@ export function cli(master: Master): void {
                 });
             }
         });
-    vorpal.delimiter("master-cli>").show();
-}
 
-function getNodesIds(): string[] {
-    return [];
+    vorpal.command("v8", "V8 module heap statistics").action(async args => {
+        const version = process.versions.v8;
+        const stream = v8.getHeapStatistics();
+        logger.table("V8 module information", {
+            "V8 VERSION": `${version}`,
+            "Total heap size": `${(stream.total_heap_size / 1024 / 1024).toFixed(2)} MB`,
+            "Total heap size executable": `${(stream.total_heap_size_executable / 1024 / 1024).toFixed(2)} MB`,
+            "Total physical size": `${(stream.total_physical_size / 1024 / 1024).toFixed(2)} MB`,
+            "Total available size": `${(stream.total_available_size / 1024 / 1024 / 1024).toFixed(2)} GB`,
+            "Used heap size": `${(stream.used_heap_size / 1024 / 1024).toFixed(2)} MB`,
+            "Heap size limit": `${(stream.heap_size_limit / 1024 / 1024 / 1024).toFixed(2)} GB`,
+            "Malloced memory": `${(stream.malloced_memory / 1024 / 1024).toFixed(2)} MB`,
+            "Peak malloced memory": `${(stream.peak_malloced_memory / 1024 / 1024).toFixed(2)} MB`,
+            "Does zap garbage": `${stream.does_zap_garbage}`,
+            "Number of native contexts": `${stream.number_of_native_contexts}`,
+            "Number of detached contexts": `${stream.number_of_detached_contexts}`
+        });
+    });
+
+    vorpal.delimiter("master-cli>").show();
 }

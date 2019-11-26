@@ -2,9 +2,9 @@ import { Wire } from "@noia-network/protocol";
 import {
     NodeMetadata,
     MasterMetadata,
-    ClientMetadata,
-    MasterBlockchainMetadata,
-    NodeBlockchainMetadata
+    ClientMetadata
+    // MasterBlockchainMetadata,
+    // NodeBlockchainMetadata
 } from "@noia-network/protocol/dist/contracts";
 import * as WebSocket from "ws";
 import { UptimeRequestDto, UptimeResponse } from "./data-cluster";
@@ -85,22 +85,6 @@ export interface Node {
         available: number;
         total: number;
     };
-    tokens?: number;
-    uploaded?: number;
-    downloaded?: number;
-    /**
-     * Current session uptime.
-     */
-    uptime: number;
-    airdropAddress: string | null;
-    bandwidthDownload: number;
-    bandwidthUpload: number;
-    loadDownload: number;
-    loadUpload: number;
-    healthScore: number;
-    distance?: number;
-    latency?: number;
-    lastWorkOrder: string | null;
     system: {
         distro?: string;
         deviceType?: string;
@@ -123,6 +107,22 @@ export interface Node {
         pingIpv6?: boolean;
         interfacesLength: number;
     };
+    tokens?: number;
+    uploaded?: number;
+    downloaded?: number;
+    /**
+     * Current session uptime.
+     */
+    uptime: number;
+    airdropAddress: string | null;
+    bandwidthDownload: number;
+    bandwidthUpload: number;
+    loadDownload: number;
+    loadUpload: number;
+    healthScore: number;
+    distance?: number;
+    latency?: number;
+    lastWorkOrder: string | null;
 }
 
 export interface Candidate {
@@ -134,8 +134,11 @@ export interface Candidate {
     ports: { [TKey in ClientConnectionsTypes]?: number };
 }
 
-export type ExtendedWireTypes = ExtendedWire<MasterMetadata, NodeMetadata> | ExtendedWire<MasterBlockchainMetadata, NodeBlockchainMetadata>;
-export type WireTypes = Wire<MasterMetadata, NodeMetadata> | Wire<MasterBlockchainMetadata, NodeBlockchainMetadata>;
+// tslint:disable-next-line:max-line-length
+// export type ExtendedWireTypes = ExtendedWire<MasterMetadata, NodeMetadata> | ExtendedWire<MasterBlockchainMetadata, NodeBlockchainMetadata>;
+// export type WireTypes = Wire<MasterMetadata, NodeMetadata> | Wire<MasterBlockchainMetadata, NodeBlockchainMetadata>;
+export type ExtendedWireTypes = ExtendedWire<MasterMetadata, NodeMetadata>;
+export type WireTypes = Wire<MasterMetadata, NodeMetadata>;
 
 export class ExtendedWire<TLocalMetadata extends ClientMetadata, TRemoteMetadata extends ClientMetadata> extends Wire<
     TLocalMetadata,

@@ -218,15 +218,19 @@ export class DataCluster extends SocketClient {
 
     private async initialize(): Promise<void> {
         await this.connect();
-        this.on("message", msg => {
-            const response: UploadTotalResponse | DownloadTotalResponse | UptimeResponse = JSON.parse(msg as string);
-            const id = this.getQueueIdentifier(response.nodeId, response.timestamp);
-            if (this.responsesQueue.has(id)) {
-                const callback = this.responsesQueue.get(id)!;
-                callback(response);
-                this.responsesQueue.delete(id);
-            }
-        });
+        try {
+            this.on("message", msg => {
+                const response: UploadTotalResponse | DownloadTotalResponse | UptimeResponse = JSON.parse(msg as string);
+                const id = this.getQueueIdentifier(response.nodeId, response.timestamp);
+                if (this.responsesQueue.has(id)) {
+                    const callback = this.responsesQueue.get(id)!;
+                    callback(response);
+                    this.responsesQueue.delete(id);
+                }
+            });
+        } catch (err) {
+            logger.error("Failed to send msg:", err);
+        }
         setInterval(async () => {
             if (this.socket == null || this.socket.readyState !== ReadyState.Open) {
                 try {
@@ -288,11 +292,15 @@ export class DataCluster extends SocketClient {
      */
     public async uploadTotal(uploadTotalRequest: UploadTotalDto): Promise<UploadTotalResponse> {
         return new Promise<UploadTotalResponse>(async resolve => {
-            this.sendWithResponse<NodeEvents, UploadTotalDto>(NodeEvents.UploadTotal, uploadTotalRequest, result => {
-                logger.verbose(`Received node-id=${uploadTotalRequest.nodeId} uptime (upload) event:`, result);
-                resolve(result as UploadTotalResponse);
-            });
-            logger.verbose(`Requested node-id=${uploadTotalRequest.nodeId} upload total.`);
+            try {
+                this.sendWithResponse<NodeEvents, UploadTotalDto>(NodeEvents.UploadTotal, uploadTotalRequest, result => {
+                    logger.verbose(`Received node-id=${uploadTotalRequest.nodeId} uptime (upload) event:`, result);
+                    resolve(result as UploadTotalResponse);
+                });
+                logger.verbose(`Requested node-id=${uploadTotalRequest.nodeId} upload total.`);
+            } catch (err) {
+                logger.error("Failed to send UploadTotal:", err);
+            }
         });
     }
 
@@ -301,11 +309,15 @@ export class DataCluster extends SocketClient {
      */
     public async downloadTotal(downloadTotalRequest: DownloadTotalDto): Promise<DownloadTotalResponse> {
         return new Promise<DownloadTotalResponse>(async (resolve, reject) => {
-            this.sendWithResponse<NodeEvents, DownloadTotalDto>(NodeEvents.DownloadTotal, downloadTotalRequest, result => {
-                logger.verbose(`Received node-id=${downloadTotalRequest.nodeId} uptime (download) event:`, result);
-                resolve(result as DownloadTotalResponse);
-            });
-            logger.verbose(`Requested node-id=${downloadTotalRequest.nodeId} download total.`);
+            try {
+                this.sendWithResponse<NodeEvents, DownloadTotalDto>(NodeEvents.DownloadTotal, downloadTotalRequest, result => {
+                    logger.verbose(`Received node-id=${downloadTotalRequest.nodeId} uptime (download) event:`, result);
+                    resolve(result as DownloadTotalResponse);
+                });
+                logger.verbose(`Requested node-id=${downloadTotalRequest.nodeId} download total.`);
+            } catch (err) {
+                logger.error("Failed to send downloadTotal:", err);
+            }
         });
     }
 
@@ -315,24 +327,28 @@ export class DataCluster extends SocketClient {
     public async uptime(uptimeRequest: UptimeRequestDto, parentTimestamp?: number): Promise<UptimeResponse> {
         return new Promise<UptimeResponse>(async (resolve, reject) => {
             // If parent timestamp is known, expect that this node is alive.
-            if (parentTimestamp != null) {
-                Object.assign(uptimeRequest, {
-                    alive: {
-                        parentTimestamp: parentTimestamp,
-                        timestamp: Date.now()
-                    }
-                });
-            }
+            try {
+                if (parentTimestamp != null) {
+                    Object.assign(uptimeRequest, {
+                        alive: {
+                            parentTimestamp: parentTimestamp,
+                            timestamp: Date.now()
+                        }
+                    });
+                }
 
-            this.sendWithResponse<NodeEvents, UptimeRequestDto>(NodeEvents.Uptime, uptimeRequest, result => {
-                logger.verbose(`Received node-id=${uptimeRequest.nodeId} uptime event:`, result);
-                resolve(result as UptimeResponse);
-            });
-            logger.verbose(
-                `Requested node-id=${uptimeRequest.nodeId} uptime from=${uptimeRequest.from}, to=${
-                    uptimeRequest.to
-                }, diff=${uptimeRequest.to - uptimeRequest.from}.`
-            );
+                this.sendWithResponse<NodeEvents, UptimeRequestDto>(NodeEvents.Uptime, uptimeRequest, result => {
+                    logger.verbose(`Received node-id=${uptimeRequest.nodeId} uptime event:`, result);
+                    resolve(result as UptimeResponse);
+                });
+                logger.verbose(
+                    `Requested node-id=${uptimeRequest.nodeId} uptime from=${uptimeRequest.from}, to=${
+                        uptimeRequest.to
+                    }, diff=${uptimeRequest.to - uptimeRequest.from}.`
+                );
+            } catch (err) {
+                logger.error("Failed to send uptime:", err);
+            }
         });
     }
 
@@ -345,8 +361,12 @@ export class DataCluster extends SocketClient {
                 NodeEvents.ListWhitelistedClients,
                 listWhitelistedRequest,
                 result => {
-                    logger.verbose(`Received list whitelisted clients request:`, result);
-                    resolve(result as ListWhitelistedClientsResponse);
+                    try {
+                        logger.verbose(`Received list whitelisted clients request:`, result);
+                        resolve(result as ListWhitelistedClientsResponse);
+                    } catch (err) {
+                        logger.error("Failed in listWhitelisted:", err);
+                    }
                 }
             );
             // logger.verbose(
@@ -363,10 +383,14 @@ export class DataCluster extends SocketClient {
     public async isAlive(isAliveRequest: IsAliveDto): Promise<boolean> {
         return new Promise<boolean>(async (resolve, reject) => {
             this.sendWithResponse<NodeEvents, IsAliveDto>(NodeEvents.IsAlive, isAliveRequest, result => {
-                // @ts-ignore
-                logger.verbose(`Received is alive request response: nodeId=${isAliveRequest.nodeId} is-alive=${result.isAlive}`);
-                // @ts-ignore
-                resolve(result.isAlive as boolean);
+                try {
+                    // @ts-ignore
+                    logger.verbose(`Received is alive request response: nodeId=${isAliveRequest.nodeId} is-alive=${result.isAlive}`);
+                    // @ts-ignore
+                    resolve(result.isAlive as boolean);
+                } catch (err) {
+                    logger.error("Failed to send isAlive:", err);
+                }
             });
             // logger.verbose(
             //     `Requested node-id=${listWhitelistedRequest.nodeId} uptime from=${listWhitelistedRequest.from}, to=${
@@ -381,7 +405,9 @@ export class DataCluster extends SocketClient {
      */
     public async addWhitelistedClient(data: AddWhitelistedClientDto): Promise<void> {
         // logger.info(`Node node`)
-        this.send<NodeEvents, AddWhitelistedClientDto>(NodeEvents.AddWhitelistedClient, data);
+        this.send<NodeEvents, AddWhitelistedClientDto>(NodeEvents.AddWhitelistedClient, data).catch(err => {
+            logger.error(err);
+        });
     }
 
     /**
@@ -389,7 +415,9 @@ export class DataCluster extends SocketClient {
      */
     public async removeWhitelistedClient(data: RemoveWhitelistedClientDto): Promise<void> {
         // logger.info(`Node node`)
-        this.send<NodeEvents, RemoveWhitelistedClientDto>(NodeEvents.RemoveWhitelistedClient, data);
+        this.send<NodeEvents, RemoveWhitelistedClientDto>(NodeEvents.RemoveWhitelistedClient, data).catch(err => {
+            logger.error(err);
+        });
     }
 
     /**
@@ -397,7 +425,9 @@ export class DataCluster extends SocketClient {
      */
     public async connected(data: ConnectedDto): Promise<void> {
         // logger.info(`Node node`)
-        this.send<NodeEvents, ConnectedDto>(NodeEvents.Connected, data);
+        this.send<NodeEvents, ConnectedDto>(NodeEvents.Connected, data).catch(err => {
+            logger.error("Node is connected to master:", err);
+        });
     }
 
     /**
@@ -409,7 +439,9 @@ export class DataCluster extends SocketClient {
         if (this.downloads[id] == null) {
             this.downloads[id] = data;
             setTimeout(() => {
-                this.send<NodeEvents, DownloadDto>(NodeEvents.Download, this.downloads[id]);
+                this.send<NodeEvents, DownloadDto>(NodeEvents.Download, this.downloads[id]).catch(err => {
+                    logger.error(err);
+                });
                 delete this.downloads[id];
             }, config.get(ConfigOption.DataClusterBandwidthQueueIntervalMs));
         } else {
@@ -426,7 +458,9 @@ export class DataCluster extends SocketClient {
         if (this.uploads[id] == null) {
             this.uploads[id] = data;
             setTimeout(() => {
-                this.send<NodeEvents, UploadDto>(NodeEvents.Upload, this.uploads[id]);
+                this.send<NodeEvents, UploadDto>(NodeEvents.Upload, this.uploads[id]).catch(err => {
+                    logger.error(err);
+                });
                 delete this.uploads[id];
             }, config.get(ConfigOption.DataClusterBandwidthQueueIntervalMs));
         } else {
@@ -438,86 +472,106 @@ export class DataCluster extends SocketClient {
      * Node is still online at current timestamp.
      */
     public async alive(data: AliveDto): Promise<void> {
-        this.send<NodeEvents, AliveDto>(NodeEvents.Alive, data);
+        this.send<NodeEvents, AliveDto>(NodeEvents.Alive, data).catch(err => {
+            logger.error("Alive err:", err);
+        });
     }
 
     /**
      * Node is disconnected.
      */
     public async disconnected(data: DisconnectedDto): Promise<void> {
-        this.send<NodeEvents, DisconnectedDto>(NodeEvents.Disconnected, data);
+        this.send<NodeEvents, DisconnectedDto>(NodeEvents.Disconnected, data).catch(err => {
+            logger.error(err);
+        });
     }
 
     public async bandwidth(data: BandwidthDto): Promise<void> {
-        this.send<NodeEvents, BandwidthDto>(NodeEvents.Bandwidth, data);
+        this.send<NodeEvents, BandwidthDto>(NodeEvents.Bandwidth, data).catch(err => {
+            logger.error(err);
+        });
     }
 
     public async storage(data: StorageDto): Promise<void> {
-        this.send<NodeEvents, StorageDto>(NodeEvents.Storage, data);
+        this.send<NodeEvents, StorageDto>(NodeEvents.Storage, data).catch(err => {
+            logger.error(err);
+        });
     }
 
     public async system(data: SystemDto): Promise<void> {
-        this.send<NodeEvents, SystemDto>(NodeEvents.System, data);
+        this.send<NodeEvents, SystemDto>(NodeEvents.System, data).catch(err => {
+            logger.error(err);
+        });
     }
 
     public async ping(data: PingDto): Promise<void> {
-        this.send<NodeEvents, PingDto>(NodeEvents.Ping, data);
+        this.send<NodeEvents, PingDto>(NodeEvents.Ping, data).catch(err => {
+            logger.error(err);
+        });
     }
 
     public async metadata(data: MetadataDto): Promise<void> {
-        this.send<NodeEvents, MetadataDto>(NodeEvents.Metadata, data);
+        this.send<NodeEvents, MetadataDto>(NodeEvents.Metadata, data).catch(err => {
+            logger.error(err);
+        });
     }
 
     public registerLifetime(
         nodeId: string,
         registerEvents: (onDisconnect: () => void, uptime: (uptimeRequest: UptimeRequestDto) => Promise<UptimeResponse>) => void
     ): void {
-        const FIVE_TO_FIFTEEN_MINUTES = (Math.floor(Math.random() * 5) + 10) * 60 * 1000;
-        const parentTimestamp = Date.now();
-        logger.verbose(`Data cluster received node-id=${nodeId} timestamp=${parentTimestamp} connect event.`);
-        dataCluster.connected({
-            nodeId: nodeId,
-            timestamp: parentTimestamp
-        });
+        try {
+            const FIVE_TO_FIFTEEN_MINUTES = (Math.floor(Math.random() * 5) + 10) * 60 * 1000;
+            const parentTimestamp = Date.now();
+            logger.verbose(`Data cluster received node-id=${nodeId} timestamp=${parentTimestamp} connect event.`);
+            dataCluster.connected({
+                nodeId: nodeId,
+                timestamp: parentTimestamp
+            });
 
-        const intervalId = setInterval(() => {
-            dataClusterAlive(nodeId);
-        }, FIVE_TO_FIFTEEN_MINUTES);
-
-        registerEvents(
-            () => {
-                clearInterval(intervalId);
+            const intervalId = setInterval(() => {
                 dataClusterAlive(nodeId);
-                dataClusterDisconnected(nodeId);
-            },
-            async (uptimeRequest: UptimeRequestDto) => {
-                // Alive should be sent since doesn't seem that data cluster updates alive record by only sending uptime.
-                this.alive({
-                    nodeId: uptimeRequest.nodeId,
-                    parentTimestamp: parentTimestamp,
-                    timestamp: new Date().getTime()
+            }, FIVE_TO_FIFTEEN_MINUTES);
+
+            registerEvents(
+                () => {
+                    clearInterval(intervalId);
+                    dataClusterAlive(nodeId);
+                    dataClusterDisconnected(nodeId);
+                },
+                async (uptimeRequest: UptimeRequestDto) => {
+                    // Alive should be sent since doesn't seem that data cluster updates alive record by only sending uptime.
+                    this.alive({
+                        nodeId: uptimeRequest.nodeId,
+                        parentTimestamp: parentTimestamp,
+                        timestamp: new Date().getTime()
+                    });
+                    return this.uptime(uptimeRequest, parentTimestamp);
+                }
+            );
+
+            function dataClusterAlive(id: string): void {
+                const dateNow = Date.now();
+                logger.verbose(
+                    `Data cluster received node-id=${id}, timestamp=${dateNow}, parent-timestamp=${parentTimestamp} alive event.`
+                );
+                dataCluster.alive({
+                    nodeId: id,
+                    timestamp: dateNow,
+                    parentTimestamp: parentTimestamp
                 });
-                return this.uptime(uptimeRequest, parentTimestamp);
             }
-        );
 
-        function dataClusterAlive(id: string): void {
-            const dateNow = Date.now();
-            logger.verbose(`Data cluster received node-id=${id}, timestamp=${dateNow}, parent-timestamp=${parentTimestamp} alive event.`);
-            dataCluster.alive({
-                nodeId: id,
-                timestamp: dateNow,
-                parentTimestamp: parentTimestamp
-            });
-        }
-
-        function dataClusterDisconnected(id: string): void {
-            const dateNow = Date.now();
-            logger.verbose(`Data cluster received node-id=${id}, timestamp=${dateNow} disconnect event.`);
-            dataCluster.disconnected({
-                nodeId: id,
-                timestamp: dateNow
-            });
+            function dataClusterDisconnected(id: string): void {
+                const dateNow = Date.now();
+                logger.verbose(`Data cluster received node-id=${id}, timestamp=${dateNow} disconnect event.`);
+                dataCluster.disconnected({
+                    nodeId: id,
+                    timestamp: dateNow
+                });
+            }
+        } catch (err) {
+            logger.error("registerLifetime err:", err);
         }
     }
 }

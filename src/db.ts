@@ -119,6 +119,8 @@ export class DB {
                     resolve();
                 }
             });
+        }).catch(err => {
+            logger.error(err);
         });
     }
 
@@ -144,6 +146,8 @@ export class DB {
                     resolve();
                 }
             });
+        }).catch(err => {
+            logger.error("Error in function initFilesDatabase:", err);
         });
     }
 
@@ -171,6 +175,8 @@ export class DB {
                     resolve();
                 }
             });
+        }).catch(err => {
+            logger.error("Error in function initNodesDatabase:", err);
         });
     }
 
@@ -204,6 +210,8 @@ export class DB {
                     resolve();
                 }
             });
+        }).catch(err => {
+            logger.error("Error in function initNodesContentDatabase:", err);
         });
     }
 
@@ -307,6 +315,8 @@ export class DB {
                     resolve();
                 }
             });
+        }).catch(err => {
+            logger.error("Error in function initContentPopularityDatabase:", err);
         });
     }
 
