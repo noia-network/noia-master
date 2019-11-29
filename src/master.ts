@@ -9,7 +9,7 @@ import { config, ConfigOption } from "./config";
 import { logger } from "./logger";
 import { nodes, Nodes } from "./nodes";
 import { Helpers } from "./helpers";
-import { Client } from "./client";
+// import { Client } from "./client";
 
 interface SystemUsage {
     tick: () => void;
@@ -84,25 +84,38 @@ export class Master {
     public async start(): Promise<void> {
         await Promise.all([this.listenClients(), this.listenNodes(), this.listenApi()]);
         // Websocket for nodes
-        this.wssNodes.on("connection", (ws, req) => {
-            this.nodes.connect(ws, req);
+        this.wssNodes.on("connection", async (ws, req) => {
+            try {
+                await this.nodes.connect(ws, req);
+            } catch (err) {
+                logger.error("Error on wss nodes connection:", err);
+            }
         });
 
         // Websocket for clients
         this.wssClients.on("connection", (ws, req) => {
-            const ip = Helpers.getIp(req);
-            if (ip == null) {
-                logger.error("Could not determine client ip address.");
-                return;
+            try {
+                const ip = Helpers.getIp(req);
+                if (ip == null) {
+                    logger.error("Could not determine client ip address.");
+                    return;
+                }
+            } catch (err) {
+                logger.error("Error on wss client connection:", err);
             }
             // const client = new Client(this, ws, ip);
             // TODO: Add client so Client[]?
         });
 
         // Websocket for master api
-        this.wssApi.on("connection", (ws, req) => {
-            logger.debug("wssApi :: connection");
-            this.api.connect(ws);
+        this.wssApi.on("connection", ws => {
+            // req parameter not needed in this section
+            try {
+                logger.debug("wssApi :: connection");
+                this.api.connect(ws);
+            } catch (err) {
+                logger.error("Error on wss api connection:", err);
+            }
         });
         this.ready = true;
         this.system.tick();

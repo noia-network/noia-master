@@ -72,32 +72,36 @@ class Scheduler {
 
     public async process(nodeId: string, ip: string, port: number, candidateIp: string): Promise<WebRtcCheckResult> {
         return new Promise<WebRtcCheckResult>((resolve, reject) => {
-            if (this.queue.has(nodeId)) {
-                const item = this.queue.get(nodeId)!;
-                item.callbacks.push((result: WebRtcCheckResult) => {
-                    resolve(result);
-                });
-                item.errors.push(err => {
-                    reject(err);
-                });
-            } else {
-                this.queue.set(nodeId, {
-                    nodeId: nodeId,
-                    ip: ip,
-                    port: port,
-                    candidateIp: candidateIp,
-                    status: "not-processed",
-                    callbacks: [
-                        (result: WebRtcCheckResult) => {
-                            resolve(result);
-                        }
-                    ],
-                    errors: [
-                        err => {
-                            reject(err);
-                        }
-                    ]
-                });
+            try {
+                if (this.queue.has(nodeId)) {
+                    const item = this.queue.get(nodeId)!;
+                    item.callbacks.push((result: WebRtcCheckResult) => {
+                        resolve(result);
+                    });
+                    item.errors.push(err => {
+                        reject(err);
+                    });
+                } else {
+                    this.queue.set(nodeId, {
+                        nodeId: nodeId,
+                        ip: ip,
+                        port: port,
+                        candidateIp: candidateIp,
+                        status: "not-processed",
+                        callbacks: [
+                            (result: WebRtcCheckResult) => {
+                                resolve(result);
+                            }
+                        ],
+                        errors: [
+                            err => {
+                                reject(err);
+                            }
+                        ]
+                    });
+                }
+            } catch (err) {
+                logger.error("Error on process:", err);
             }
         });
     }

@@ -1,40 +1,44 @@
-import { Node } from "./contracts";
+/////
+// Deprecated. All nodes now are public.
+/////
 
-type ProvidersList = {
-    [name: string]: ProviderData;
-};
+// import { Node } from "./contracts";
 
-interface ProviderData {
-    isPrivate: boolean;
-}
+// type ProvidersList = {
+//     [name: string]: ProviderData;
+// };
 
-const providersList: ProvidersList = {
-    "noia.network": {
-        isPrivate: true
-    }
-};
+// interface ProviderData {
+//     isPrivate: boolean;
+// }
 
-class Provider {
-    public integrity(providerName: string, node: Node): boolean {
-        if (!this.check(providerName)) {
-            return false;
-        }
+// const providersList: ProvidersList = {
+//     "noia.network": {
+//         isPrivate: true
+//     }
+// };
 
-        for (const prop in providersList[providerName]) {
-            if (
-                providersList[providerName].hasOwnProperty(prop) &&
-                node[prop as keyof Node] !== providersList[providerName][prop as keyof ProviderData]
-            ) {
-                return true;
-            }
-        }
+// class Provider {
+//     public integrity(providerName: string, node: Node): boolean {
+//         if (!this.check(providerName)) {
+//             return false;
+//         }
 
-        return false;
-    }
+//         for (const prop in providersList[providerName]) {
+//             if (
+//                 providersList[providerName].hasOwnProperty(prop) &&
+//                 node[prop as keyof Node] !== providersList[providerName][prop as keyof ProviderData]
+//             ) {
+//                 return true;
+//             }
+//         }
 
-    private check(providerName: string): boolean {
-        return providersList[providerName] == null;
-    }
-}
+//         return false;
+//     }
 
-export let provider = new Provider();
+//     private check(providerName: string): boolean {
+//         return providersList[providerName] == null;
+//     }
+// }
+
+// export let provider = new Provider();

@@ -14,7 +14,6 @@ type SettingsDataType = string | number;
 type SettingsData = { key: string; value: SettingsDataType };
 type SettingsCollection = Collection<SettingsData>;
 interface ExtendedSettingsCollection extends SettingsCollection {
-    upsert: (query: Partial<SettingsData>, data: SettingsData) => void;
     set: (query: Partial<SettingsData>, data: SettingsData) => void;
     view: (query: Partial<SettingsData>) => SettingsDataType | undefined;
 }
@@ -45,7 +44,7 @@ interface ExtendedContentPopularityCollection extends ContentPopularityCollectio
 }
 
 const AUTOSAVE = true;
-const AUTOSAVE_INTERVAL = 1000;
+const AUTOSAVE_INTERVAL = 15 * 1000;
 const AUTOLOAD = true;
 
 class DatabaseInitError extends Error {
@@ -98,15 +97,6 @@ export class DB {
                             }
                         },
                         set: (query: Partial<SettingsData>, data: SettingsData) => {
-                            const row = settingsCollection.findOne(query);
-                            if (row) {
-                                Object.assign(row, data);
-                                settingsCollection.update(row);
-                            } else {
-                                settingsCollection.insert(data);
-                            }
-                        },
-                        upsert: (query: Partial<SettingsData>, data: SettingsData) => {
                             const row = settingsCollection.findOne(query);
                             if (row) {
                                 Object.assign(row, data);
@@ -326,8 +316,8 @@ export class DB {
             node.status = NodeStatus.offline;
             if (node.connectedAt != null && node.connectedAt > 0) {
                 node.disconnectedAt = Helpers.datetime.time();
-                const uptime = Helpers.datetime.timeDiff(node.disconnectedAt, node.connectedAt);
-                node.uptime = node.uptime ? node.uptime + uptime : uptime;
+                // const uptime = Helpers.datetime.timeDiff(node.disconnectedAt, node.connectedAt);
+                // node.uptime = node.uptime ? node.uptime + uptime : uptime;
             }
             this.nodes().update(node);
         }

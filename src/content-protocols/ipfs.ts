@@ -7,21 +7,20 @@ import { config, ConfigOption } from "../config";
 import { logger } from "../logger";
 
 const ipfsApi = require("ipfs");
-
 class IPFS extends EventEmitter {
     constructor() {
         super();
     }
 
     public storage: any;
-    public dir_content: any;
+    public dirContent: any;
     public node: any;
 
     public async setup(): Promise<void> {
         logger.info("Starting IPFS.");
 
         this.storage = path.join(config.get(ConfigOption.StorageDir), "ipfs");
-        this.dir_content = path.join(config.get(ConfigOption.StorageDir), "ipfs", "content");
+        this.dirContent = path.join(config.get(ConfigOption.StorageDir), "ipfs", "content");
 
         if (!fs.existsSync(path.join(config.get(ConfigOption.StorageDir)))) {
             fs.mkdirSync(config.get(ConfigOption.StorageDir));
@@ -31,8 +30,8 @@ class IPFS extends EventEmitter {
             fs.mkdirSync(this.storage);
         }
 
-        if (!fs.existsSync(this.dir_content)) {
-            fs.mkdirSync(this.dir_content);
+        if (!fs.existsSync(this.dirContent)) {
+            fs.mkdirSync(this.dirContent);
         }
 
         return new Promise<void>((resolve, reject) => {
@@ -68,46 +67,50 @@ class IPFS extends EventEmitter {
                 reject(errorObject);
             });
         }).catch(err => {
-            logger.error("ipfs", err);
+            logger.error("ipfs err:", err);
         });
     }
 
-    private list(hash: string): any {
+    private async list(hash: string) {
         logger.info("IPFS Listing: " + hash);
-        return new Promise((resolve, reject) => {
-            this.node.ls(hash, (err: any, files: any) => {
-                if (err) {
-                    logger.error("IPFS.download.ls : hash[" + hash + "] ERROR: ", err);
-                    reject();
-                }
-                logger.debug("IPFS[" + hash + "] LIST[" + files.length + "]");
-                this.emit("list", files);
-                resolve(files);
-            });
+        return new Promise<void>((resolve, reject) => {
+            try {
+                this.node.ls(hash, (err: any, files: any) => {
+                    if (err) {
+                        logger.error(`IPFS.download.ls : hash[${hash}] ERROR: ${err}`);
+                        reject();
+                    }
+                    logger.debug(`IPFS[${hash}] LIST[${files.length}]`);
+                    this.emit("list", files);
+                    resolve(files);
+                });
+            } catch (err) {
+                logger.error("IPFS List err:", err);
+            }
         });
     }
 
     public async download(hash: string): Promise<string> {
-        logger.info("IPFS Searching[" + hash + "] to download...");
+        logger.info(`IPFS Searching[${hash}] to download...`);
 
         return new Promise<string>((resolve, reject) => {
             // Its already downloading
 
             this.list(hash).then((files: any) => {
                 if (files.length > 0) {
-                    logger.error("IPFS.download : hash[" + hash + "] error: found more files [" + files.length + "]", files);
+                    logger.error(`IPFS.download : hash[${hash}] error: found more files [${files.length}], ${files}`);
                     return reject();
                 }
 
                 logger.info("Downloading.");
                 this.node.files.get(hash, (err: any, files: any) => {
                     if (err) {
-                        logger.error("IPFS.download.files : hash[" + hash + "] error: ", err);
+                        logger.error(`IPFS.download.files : hash[${hash}] error: ${err}`);
                         this.emit("error", err);
                         return reject();
                     }
                     if (files.length < 1 || files.length > 1) {
-                        logger.error("IPFS.download.files : hash[" + hash + "] " + files.length + " files: ", files);
+                        logger.error(`IPFS.download.files : hash[${hash}] ${files.length} files: ${files}`);
                         this.emit("error", err);
                         return reject();
                     }
