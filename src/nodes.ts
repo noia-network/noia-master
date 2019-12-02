@@ -10,9 +10,9 @@ import {
     Uploaded,
     Requested,
     MasterMetadata,
-    MasterBlockchainMetadata,
+    // MasterBlockchainMetadata,
     NodeMetadata,
-    NodeBlockchainMetadata,
+    // NodeBlockchainMetadata,
     ProtocolEvent,
     StorageData,
     BandwidthData,
@@ -78,15 +78,15 @@ export class Nodes {
 
     public async connect(ws: WebSocket, req: http.IncomingMessage): Promise<void> {
         try {
-            if (config.get(ConfigOption.BlockchainIsEnabled)) {
-                try {
-                    await this.wireSetup(ws, req);
-                } catch (err) {
-                    logger.error("Error:", err);
-                }
-            } else {
-                await this.wireSetup(ws, req);
-            }
+            // if (config.get(ConfigOption.BlockchainIsEnabled)) {
+            //     try {
+            //         await this.wireSetup(ws, req);
+            //     } catch (err) {
+            //         logger.error("Error:", err);
+            //     }
+            // } else {
+            await this.wireSetup(ws, req);
+            // }
         } catch (err) {
             logger.error(err);
         }
@@ -562,7 +562,7 @@ export class Nodes {
             node = {
                 connectedAt: Helpers.datetime.time(),
                 ip: wire.getLocalMetadata().externalIp,
-                nodeId: wire.getRemoteMetadata().nodeId,
+                nodeId: wire.getRemoteMetadata().nodeId.replace("\xFFFD", ""),
                 uptime: 0,
                 storage: {
                     available: 0,
@@ -636,59 +636,63 @@ export class Nodes {
             };
         }
 
-        node.interface = wire.getRemoteMetadata().interface;
-        node.airdropAddress = wire.getRemoteMetadata().airdropAddress;
-        node.status = NodeStatus.online;
-        node.isInternalNode = wire.isInternalNode;
-
-        if (wire.isInternalNode) {
-            node.domain = cloudflare.createSubdomain(wire.getLocalMetadata().externalIp);
-        } else {
-            node.domain = wire.getRemoteMetadata().domain;
-        }
-
-        if (node.ip !== wire.getLocalMetadata().externalIp) {
-            node.ip = wire.getLocalMetadata().externalIp;
-        }
-
-        node.connections.webrtc.checkStatus = "not-checked";
-        node.connections.webrtc.port = wire.getRemoteMetadata().connections.webrtc;
-        node.connections.ws.checkStatus = "not-checked";
-        node.connections.ws.port = wire.getRemoteMetadata().connections.ws;
-        node.connections.wss.checkStatus = "not-checked";
-        node.connections.wss.port = wire.getRemoteMetadata().connections.wss;
-        node.loadDownload = 0;
-        node.loadUpload = 0;
-        api.register(ApiEventType.Connection, {
-            from: {
-                countryCode: node.location.countryCode
-            },
-            to: {
-                countryCode: config.get(ConfigOption.MasterLocationCountryCode)
-            }
-        });
-
         try {
-            if (isExistingNode) {
-                node.connectedAt = Helpers.datetime.time();
-                db.nodes().update(node);
-            } else {
-                node.ip = wire.getLocalMetadata().externalIp;
-                node.uploaded = 0;
-                node.tokens = 0;
-                node.storage = {
-                    used: 0,
-                    available: 0,
-                    total: 0
-                };
-                node.latency = 0;
-                node.bandwidthUpload = 0;
-                node.bandwidthDownload = 0;
+            node.interface = wire.getRemoteMetadata().interface;
+            node.airdropAddress = wire.getRemoteMetadata().airdropAddress;
+            node.status = NodeStatus.online;
+            node.isInternalNode = wire.isInternalNode;
 
-                db.nodes().insert(node);
+            if (wire.isInternalNode) {
+                node.domain = cloudflare.createSubdomain(wire.getLocalMetadata().externalIp);
+            } else {
+                node.domain = wire.getRemoteMetadata().domain;
+            }
+
+            if (node.ip !== wire.getLocalMetadata().externalIp) {
+                node.ip = wire.getLocalMetadata().externalIp;
+            }
+
+            node.connections.webrtc.checkStatus = "not-checked";
+            node.connections.webrtc.port = wire.getRemoteMetadata().connections.webrtc;
+            node.connections.ws.checkStatus = "not-checked";
+            node.connections.ws.port = wire.getRemoteMetadata().connections.ws;
+            node.connections.wss.checkStatus = "not-checked";
+            node.connections.wss.port = wire.getRemoteMetadata().connections.wss;
+            node.loadDownload = 0;
+            node.loadUpload = 0;
+            api.register(ApiEventType.Connection, {
+                from: {
+                    countryCode: node.location.countryCode
+                },
+                to: {
+                    countryCode: config.get(ConfigOption.MasterLocationCountryCode)
+                }
+            });
+
+            try {
+                if (isExistingNode) {
+                    node.connectedAt = Helpers.datetime.time();
+                    db.nodes().update(node);
+                } else {
+                    node.ip = wire.getLocalMetadata().externalIp;
+                    node.uploaded = 0;
+                    node.tokens = 0;
+                    node.storage = {
+                        used: 0,
+                        available: 0,
+                        total: 0
+                    };
+                    node.latency = 0;
+                    node.bandwidthUpload = 0;
+                    node.bandwidthDownload = 0;
+
+                    db.nodes().insert(node);
+                }
+            } catch (err) {
+                logger.error("Failed to get node information:", err);
             }
         } catch (err) {
-            logger.error("Failed to get node information:", err);
+            logger.error("Problem with node data:", err);
         }
 
         const connections = wire.getRemoteMetadata().connections;
@@ -721,26 +725,27 @@ export class Nodes {
 
         try {
             node.system = {
-                distro: systemDataEvent.data.distro == null ? "" : String(systemDataEvent.data.distro),
-                arch: systemDataEvent.data.arch == null ? "" : String(systemDataEvent.data.arch),
-                release: systemDataEvent.data.release == null ? "" : String(systemDataEvent.data.release),
-                platform: systemDataEvent.data.platform == null ? "" : String(systemDataEvent.data.platform),
-                settingsVersion: systemDataEvent.data.settingsVersion == null ? "" : String(systemDataEvent.data.settingsVersion),
-                deviceType: systemDataEvent.data.deviceType == null ? "" : String(systemDataEvent.data.deviceType),
-                iface: systemDataEvent.data.iface == null ? "" : String(systemDataEvent.data.iface),
-                ifaceName: systemDataEvent.data.ifaceName == null ? "" : String(systemDataEvent.data.ifaceName),
-                mac: systemDataEvent.data.mac == null ? "" : String(systemDataEvent.data.mac),
+                distro: systemDataEvent.data.distro == null ? "" : systemDataEvent.data.distro.replace("\xFFFD", ""),
+                arch: systemDataEvent.data.arch == null ? "" : systemDataEvent.data.arch.replace("\xFFFD", ""),
+                release: systemDataEvent.data.release == null ? "" : systemDataEvent.data.release.replace("\xFFFD", ""),
+                platform: systemDataEvent.data.platform == null ? "" : systemDataEvent.data.platform.replace("\xFFFD", ""),
+                settingsVersion:
+                    systemDataEvent.data.settingsVersion == null ? "" : systemDataEvent.data.settingsVersion.replace("\xFFFD", ""),
+                deviceType: systemDataEvent.data.deviceType == null ? "" : systemDataEvent.data.deviceType.replace("\xFFFD", ""),
+                iface: systemDataEvent.data.iface == null ? "" : systemDataEvent.data.iface.replace("\xFFFD", ""),
+                ifaceName: systemDataEvent.data.ifaceName == null ? "" : systemDataEvent.data.ifaceName.replace("\xFFFD", ""),
+                mac: systemDataEvent.data.mac == null ? "" : systemDataEvent.data.mac.replace("\xFFFD", ""),
                 internal: !!systemDataEvent.data.internal,
                 virtual: !!systemDataEvent.data.virtual,
-                operstate: systemDataEvent.data.operstate == null ? "" : String(systemDataEvent.data.operstate),
-                type: systemDataEvent.data.type == null ? "" : String(systemDataEvent.data.type),
-                duplex: systemDataEvent.data.duplex == null ? "" : String(systemDataEvent.data.duplex),
-                mtu: systemDataEvent.data.mtu ? parseInt(systemDataEvent.data.mtu.toString()) : 0,
-                speed: systemDataEvent.data.speed ? parseInt(systemDataEvent.data.speed.toString()) : 0,
-                ipv4: systemDataEvent.data.ipv4 == null ? "" : String(systemDataEvent.data.ipv4),
-                ipv6: systemDataEvent.data.ipv6 == null ? "" : String(systemDataEvent.data.ipv6),
+                operstate: systemDataEvent.data.operstate == null ? "" : systemDataEvent.data.operstate.replace("\xFFFD", ""),
+                type: systemDataEvent.data.type == null ? "" : systemDataEvent.data.type.replace("\xFFFD", ""),
+                duplex: systemDataEvent.data.duplex == null ? "" : systemDataEvent.data.duplex.replace("\xFFFD", ""),
+                mtu: systemDataEvent.data.mtu ? systemDataEvent.data.mtu : 0,
+                speed: systemDataEvent.data.speed ? systemDataEvent.data.speed : 0,
+                ipv4: systemDataEvent.data.ipv4 == null ? "" : systemDataEvent.data.ipv4,
+                ipv6: systemDataEvent.data.ipv6 == null ? "" : systemDataEvent.data.ipv6,
                 pingIpv6: !!systemDataEvent.data.pingIpv6,
-                interfacesLength: systemDataEvent.data.interfacesLength ? parseInt(systemDataEvent.data.interfacesLength.toString()) : 0
+                interfacesLength: systemDataEvent.data.interfacesLength ? systemDataEvent.data.interfacesLength : 0
             };
         } catch (err) {
             logger.error("Failed to send system data:", err);

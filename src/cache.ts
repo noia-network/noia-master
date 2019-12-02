@@ -677,6 +677,7 @@ export class Cache {
                         if (nodeTo != null && nodeFrom != null) {
                             contentManager.queueCaching(content.contentSrc, nodeTo.nodeId, nodeFrom.nodeId);
                             logger.caching(
+                                // tslint:disable-next-line:max-line-length
                                 `Content ${content.contentSrc} pushed into caching queue from node ${nodeFrom.nodeId} to node ${nodeTo.nodeId}.`
                             );
                             additionalScaling--;

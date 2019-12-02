@@ -10,14 +10,7 @@
         "importHelpers": true,
         "noImplicitAny": true,
         "strict": true,
-        "lib": ["dom", "es7"],
-        "plugins": [
-            {
-                "name": "tslint-language-service",
-                "alwaysShowRuleFailuresAsWarnings": true,
-                "ignoreDefinitionFiles": true
-            }
-        ]
+        "lib": ["dom", "es7"]
     },
     "include": ["src/**/*"]
 }

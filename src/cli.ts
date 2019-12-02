@@ -630,6 +630,7 @@ export function cli(master: Master): void {
     vorpal
         .command(
             `master-ping-nodes`,
+            // tslint:disable-next-line:max-line-length
             `${"\x1b[35m"}Experimental use.${"\x1b[0m"} Ping nodes from master. ${"\x1b[31m"}WARNING!${"\x1b[0m"} If nodeId is not provided, pinging all online nodes.`
         )
         .option("-n, --nodeId <nodeId>", "Node id.")
@@ -666,6 +667,7 @@ export function cli(master: Master): void {
     vorpal.command("v8", "V8 module heap statistics").action(async args => {
         const version = process.versions.v8;
         const stream = v8.getHeapStatistics();
+        const stats = process.memoryUsage();
         logger.table("V8 module information", {
             "V8 VERSION": `${version}`,
             "Total heap size": `${(stream.total_heap_size / 1024 / 1024).toFixed(2)} MB`,
@@ -678,7 +680,19 @@ export function cli(master: Master): void {
             "Peak malloced memory": `${(stream.peak_malloced_memory / 1024 / 1024).toFixed(2)} MB`,
             "Does zap garbage": `${stream.does_zap_garbage}`,
             "Number of native contexts": `${stream.number_of_native_contexts}`,
-            "Number of detached contexts": `${stream.number_of_detached_contexts}`
+            "Number of detached contexts": `${stream.number_of_detached_contexts}`,
+            "V8 Memory usage: heapTotal": `${(stats.heapTotal / 1024 / 1024).toFixed(2)} MB`,
+            "V8 Memory usage: heapUsed": `${(stats.heapUsed / 1024 / 1024).toFixed(2)} MB`,
+            "V8 external refers": `${(stats.external / 1024 / 1024).toFixed(2)} MB`,
+            "V8 space occupied": `${(stats.rss / 1024 / 1024).toFixed(2)} MB`
+        });
+    });
+
+    vorpal.command("cpu", "CPU information").action(async args => {
+        const cpu = process.cpuUsage();
+        logger.table("information", {
+            "CPU user": `${cpu.user}`,
+            "CPU system": `${cpu.system}`
         });
     });
 
