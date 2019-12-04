@@ -562,7 +562,7 @@ export class Nodes {
             node = {
                 connectedAt: Helpers.datetime.time(),
                 ip: wire.getLocalMetadata().externalIp,
-                nodeId: wire.getRemoteMetadata().nodeId.replace("\xFFFD", ""),
+                nodeId: wire.getRemoteMetadata().nodeId.replace(RegExp(/[^\x00-\x7F]+/g), ""),
                 uptime: 0,
                 storage: {
                     available: 0,
@@ -725,21 +725,22 @@ export class Nodes {
 
         try {
             node.system = {
-                distro: systemDataEvent.data.distro == null ? "" : systemDataEvent.data.distro.replace("\xFFFD", ""),
-                arch: systemDataEvent.data.arch == null ? "" : systemDataEvent.data.arch.replace("\xFFFD", ""),
-                release: systemDataEvent.data.release == null ? "" : systemDataEvent.data.release.replace("\xFFFD", ""),
-                platform: systemDataEvent.data.platform == null ? "" : systemDataEvent.data.platform.replace("\xFFFD", ""),
-                settingsVersion:
-                    systemDataEvent.data.settingsVersion == null ? "" : systemDataEvent.data.settingsVersion.replace("\xFFFD", ""),
-                deviceType: systemDataEvent.data.deviceType == null ? "" : systemDataEvent.data.deviceType.replace("\xFFFD", ""),
-                iface: systemDataEvent.data.iface == null ? "" : systemDataEvent.data.iface.replace("\xFFFD", ""),
-                ifaceName: systemDataEvent.data.ifaceName == null ? "" : systemDataEvent.data.ifaceName.replace("\xFFFD", ""),
-                mac: systemDataEvent.data.mac == null ? "" : systemDataEvent.data.mac.replace("\xFFFD", ""),
+                distro: systemDataEvent.data.distro == null ? "" : systemDataEvent.data.distro.replace(RegExp(/[^\x00-\x7F]+/g), ""),
+                arch: systemDataEvent.data.arch == null ? "" : systemDataEvent.data.arch,
+                release: systemDataEvent.data.release == null ? "" : systemDataEvent.data.release,
+                platform: systemDataEvent.data.platform == null ? "" : systemDataEvent.data.platform,
+                settingsVersion: systemDataEvent.data.settingsVersion == null ? "" : systemDataEvent.data.settingsVersion,
+                deviceType:
+                    systemDataEvent.data.deviceType == null ? "" : systemDataEvent.data.deviceType.replace(RegExp(/[^\x00-\x7F]+/g), ""),
+                iface: systemDataEvent.data.iface == null ? "" : systemDataEvent.data.iface,
+                ifaceName:
+                    systemDataEvent.data.ifaceName == null ? "" : systemDataEvent.data.ifaceName.replace(RegExp(/[^\x00-\x7F]+/g), ""),
+                mac: systemDataEvent.data.mac == null ? "" : systemDataEvent.data.mac,
                 internal: !!systemDataEvent.data.internal,
                 virtual: !!systemDataEvent.data.virtual,
-                operstate: systemDataEvent.data.operstate == null ? "" : systemDataEvent.data.operstate.replace("\xFFFD", ""),
-                type: systemDataEvent.data.type == null ? "" : systemDataEvent.data.type.replace("\xFFFD", ""),
-                duplex: systemDataEvent.data.duplex == null ? "" : systemDataEvent.data.duplex.replace("\xFFFD", ""),
+                operstate: systemDataEvent.data.operstate == null ? "" : systemDataEvent.data.operstate,
+                type: systemDataEvent.data.type == null ? "" : systemDataEvent.data.type,
+                duplex: systemDataEvent.data.duplex == null ? "" : systemDataEvent.data.duplex,
                 mtu: systemDataEvent.data.mtu ? systemDataEvent.data.mtu : 0,
                 speed: systemDataEvent.data.speed ? systemDataEvent.data.speed : 0,
                 ipv4: systemDataEvent.data.ipv4 == null ? "" : systemDataEvent.data.ipv4,

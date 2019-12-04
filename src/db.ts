@@ -44,7 +44,7 @@ interface ExtendedContentPopularityCollection extends ContentPopularityCollectio
 }
 
 const AUTOSAVE = true;
-const AUTOSAVE_INTERVAL = 15 * 1000;
+const AUTOSAVE_INTERVAL = 1 * 1000;
 const AUTOLOAD = true;
 
 class DatabaseInitError extends Error {
